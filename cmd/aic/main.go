@@ -17,8 +17,8 @@ import (
 	"os"
 	"strings"
 
-	pki "github.com/varwof/types"
 	"github.com/varwof/crypto"
+	pki "github.com/varwof/types"
 )
 
 func main() {

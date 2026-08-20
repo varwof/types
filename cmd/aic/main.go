@@ -4,9 +4,8 @@
 // Command aic is a small CLI for the Varwof AIC protocol core.
 //
 // It provides certificate inspection (AIC / PrincipalAuthorization
-// extension parsing), capability matching, SPKI key hash computation,
-// and SM3 hashing. It has no dependencies beyond the standard library
-// and the varwof/types package.
+// extension parsing), capability matching, and SPKI key hash computation.
+// It has no dependencies beyond the standard library and the varwof/types package.
 package main
 
 import (
@@ -17,7 +16,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/varwof/crypto"
 	pki "github.com/varwof/types"
 )
 
@@ -34,8 +32,6 @@ func main() {
 		err = cmdMatch(os.Args[2:])
 	case "fingerprint":
 		err = cmdFingerprint(os.Args[2:])
-	case "sm3":
-		err = cmdSM3(os.Args[2:])
 	case "version":
 		fmt.Println(pki.Version)
 	case "help", "-h", "--help":
@@ -64,7 +60,6 @@ Commands:
                               certificate. algo is one of:
                               ` + strings.Join(pki.SupportedHashAlgos(), ", ") + `
                               (default: sha256).
-  sm3 <text>                  Compute the SM3 digest of the input.
   version                     Print the library version.
   help                        Show this help.`)
 }
@@ -165,14 +160,5 @@ func cmdFingerprint(args []string) error {
 	}
 	fmt.Printf("algo:  %s\n", pki.HashOIDName(algo))
 	fmt.Printf("hash:  %s\n", hex.EncodeToString(kh))
-	return nil
-}
-
-func cmdSM3(args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: aic sm3 <text>")
-	}
-	sum := crypto.SM3Sum([]byte(args[0]))
-	fmt.Println(hex.EncodeToString(sum[:]))
 	return nil
 }

@@ -77,9 +77,14 @@ func RegisterPlugin(p CapabilityPlugin) error {
 	return globalRegistry.Register(p)
 }
 
+// FindPlugin looks up a registered plugin by schemeID.
+func FindPlugin(schemeID string) (CapabilityPlugin, error) {
+	return globalRegistry.Find(schemeID)
+}
+
 // findPlugin looks up a registered plugin by schemeID.
 func findPlugin(schemeID string) (CapabilityPlugin, error) {
-	return globalRegistry.Find(schemeID)
+	return FindPlugin(schemeID)
 }
 
 // ExecutePlugin is a convenience wrapper for findPlugin + Execute.

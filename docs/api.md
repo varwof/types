@@ -1,4 +1,4 @@
-# pki-types API Reference
+# types API Reference
 
 > Package: `pki` | Module: `github.com/varwof/types` | Zero external dependencies
 

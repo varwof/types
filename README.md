@@ -12,6 +12,9 @@ Shared type definition library providing AIC, Capability, Principal and other co
 - PrincipalAuthorization with delegation policy
 - GatewaySessionExtension for execution constraints
 - Hash algorithm support (SHA-2/SHA-3 family)
+- `aicjwt` subpackage: AIC-JWT (`draft-wei-aic-jwt-00`) claims model,
+  JWS sign/verify, capability matching (draft Section 6.2), constraint
+  evaluation and the 11-step validation pipeline
 
 ## Installation
 
@@ -32,6 +35,10 @@ err = pki.ValidateAIC(aic)
 
 // Match capability with glob pattern
 matched := pki.MatchCapability("oracle/mysql:query:users", "oracle/*:query:*")
+
+// Validate an AIC-JWT (github.com/varwof/types/aicjwt)
+import aicjwt "github.com/varwof/types/aicjwt"
+dec, err := aicjwt.Validate(token, aicjwt.VerifyOptions{ /* ... */ })
 ```
 
 ## License

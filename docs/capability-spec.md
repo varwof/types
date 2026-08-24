@@ -1,6 +1,6 @@
 # Varwof Capability Specification (v2.0 — register)
 
-This document defines the unified Capability encoding specification for the Varwof suite (pki-core / gateway / AIC / PA),
+This document defines the unified Capability encoding specification for the Varwof suite (core / gateway / AIC / PA),
 as well as the single source of truth for capability specifications (the register module) and the generation chain for derived artifacts (authz.json / permission documentation).
 All modules' permission decisions, capability declarations, and authorization intersections must follow this document; assembling formats independently is prohibited.
 
@@ -22,7 +22,7 @@ Runtime: core issuance (capregistry validation) + authentication (authz.json pol
 
 ## 2. Structure
 
-`Capability` has three fields (consistent across pki-types / core ca structures):
+`Capability` has three fields (consistent across types / core ca structures):
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -122,13 +122,13 @@ Request permission P (full identifier varwof/core:cert:issue)
 
 ## 8. Consistency Requirements
 
-- All modules use `Capability.FullID()` (pki-types) for concatenation; duplicate implementations are prohibited
+- All modules use `Capability.FullID()` (types) for concatenation; duplicate implementations are prohibited
 - `GrantIds()` (PA) returns a list of full identifiers
 - AIC intersection (P∩C) is based on full identifier matching
 - After authentication, `AuthUser.Permissions` must use full identifiers
 - authz.json grants do not include the scheme prefix (e.g. `ca:list`), resolved at runtime based on the current scheme context;
   cross-scheme wildcards (e.g. the agent role's `gateway:*`) are handled by namespace
-- Both the issuance side (pki-core) and gateway data plane perform capability registration validation: unregistered scheme/capability declarations = rejection
+- Both the issuance side (core) and gateway data plane perform capability registration validation: unregistered scheme/capability declarations = rejection
 - Capability scheme changes must follow the register specification (modify `v*.json` → regenerate authz.json / permission documentation →
   SIGHUP hot reload); directly editing derived artifacts is prohibited to avoid drift from the authoritative schema
 

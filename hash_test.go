@@ -188,3 +188,38 @@ func TestKeyHashFromCertSPKI_ValidateRoundTrip(t *testing.T) {
 		t.Fatalf("default validate: %v", err)
 	}
 }
+
+func TestSupportedHashAlgos(t *testing.T) {
+	algos := pki.SupportedHashAlgos()
+	if len(algos) != len(pki.HashAlgoOIDs) {
+		t.Fatalf("SupportedHashAlgos() length = %d, HashAlgoOIDs = %d", len(algos), len(pki.HashAlgoOIDs))
+	}
+	for _, a := range algos {
+		if _, ok := pki.HashAlgoOIDs[a]; !ok {
+			t.Errorf("SupportedHashAlgos contains %q not in HashAlgoOIDs", a)
+		}
+	}
+	for name := range pki.HashAlgoOIDs {
+		found := false
+		for _, a := range algos {
+			if a == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("HashAlgoOIDs key %q missing from SupportedHashAlgos", name)
+		}
+	}
+}
+
+func TestHashOIDName(t *testing.T) {
+	for name, oid := range pki.HashAlgoOIDs {
+		if got := pki.HashOIDName(oid); got != name {
+			t.Errorf("HashOIDName(%v) = %q, want %q", oid, got, name)
+		}
+	}
+	if got := pki.HashOIDName(asn1.ObjectIdentifier{1, 2, 3, 4}); got != "" {
+		t.Errorf("HashOIDName(unknown) = %q, want empty", got)
+	}
+}

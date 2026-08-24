@@ -1,22 +1,22 @@
-# pki-types Developer Documentation
+# types Developer Documentation
 
 ## Module Purpose
 
-`pki-types` is the **shared type definition library** for the Varwof PKI suite, providing unified AIC, Capability, Principal, and other core ASN.1 type definitions for `pki-core`, `pki-gateway-lib`, and the three gateways.
+`types` is the **shared type definition library** for the Varwof PKI suite, providing unified AIC, Capability, Principal, and other core ASN.1 type definitions for `core`, `gateway-core`, and the three gateways.
 
-**Design constraints**: zero external dependencies, pure standard library (including the SM3 pure Go implementation built into pki-types).
+**Design constraints**: zero external dependencies, pure standard library (including the SM3 pure Go implementation built into types).
 
 ## Architecture Overview
 
 ```
-pki-types (this module)
+types (this module)
   │
-  ├─ pki-core        — Issue/verify AIC, build DelegationAuthTBS, issue certificates
-  ├─ pki-gateway-lib — Parse/validate AIC, capability matching, RBAC pipeline
+  ├─ core        — Issue/verify AIC, build DelegationAuthTBS, issue certificates
+  ├─ gateway-core — Parse/validate AIC, capability matching, RBAC pipeline
   └─ Three gateways (tcp/http/udp) — Used indirectly via lib
 ```
 
-Type sharing method: `pki-core` and `pki-gateway-lib` reference this module through Go module replace directives, with package alias `pki`.
+Type sharing method: `core` and `gateway-core` reference this module through Go module replace directives, with package alias `pki`.
 
 ## File Structure
 

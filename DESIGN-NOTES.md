@@ -1,4 +1,4 @@
-# pki-types Design Notes: Multi-level Delegation Chain (Design-level Disclosure, Not Currently Implemented)
+# types Design Notes: Multi-level Delegation Chain (Design-level Disclosure, Not Currently Implemented)
 
 > Decision record: 2026-08-05 (Plan B of I2)
 > Related: `dev-docs/aic/01-asn1.md` §DelegationDepthControl (FUTURE), Patent Claim 12/13, Embodiment 4
@@ -7,11 +7,11 @@
 
 - **Multi-level delegation chain (Agent → sub-Agent) is design-level disclosure**: The specification and patent documents have fully disclosed the recursive verification algorithm, `chainDepth`/`maxDepth` depth control, loop prevention, certificate bomb prevention, CA per-level subset verification and other boundary constraints, but **not currently implemented** (FUTURE).
 - **Single-level delegation (Principal → Agent) is the only currently supported path**, with full pipeline implemented and tested:
-  - TBS construction/signing: `aic.go`, `pki-core/internal/ca/aic.go` (BuildAIC)
-  - Signature verification: `pki-gateway-lib/decision.go` VerifyDelegationAuth (ECDSA/RSA/PSS + OID allowlist)
+  - TBS construction/signing: `aic.go`, `core/internal/ca/aic.go` (BuildAIC)
+  - Signature verification: `gateway-core/decision.go` VerifyDelegationAuth (ECDSA/RSA/PSS + OID allowlist)
   - SPKI cross-validation: `decision.go` (hashAlgo dispatch)
   - Constraint checking: `decision.go` CheckAuthorizationConstraints
-  - Conditional revocation / auto-renewal: `pki-gateway-lib/revoker.go`, `shortlived.go`
+  - Conditional revocation / auto-renewal: `gateway-core/revoker.go`, `shortlived.go`
 
 ## Decision Rationale
 

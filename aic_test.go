@@ -8,6 +8,7 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -912,5 +913,162 @@ func TestValidateAIC_MaxSizeConstants(t *testing.T) {
 	}
 	if pki.MaxNonceLen != 32 || pki.MaxRequestedLifetime != 86400 || pki.MaxAuthorizationConstraints != 32 {
 		t.Fatal("constant mismatch")
+	}
+}
+
+func TestValidateSPIFFEID(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		domain  string
+		wantErr bool
+	}{
+		{"valid", "spiffe://varwof.com/agent/my-agent", "varwof.com", false},
+		{"valid with subpath", "spiffe://example.com/agent/prod-web-server", "example.com", false},
+		{"wrong scheme", "http://varwof.com/agent/my-agent", "varwof.com", true},
+		{"wrong domain", "spiffe://other.com/agent/my-agent", "varwof.com", true},
+		{"empty id", "", "varwof.com", true},
+		{"no agents path", "spiffe://varwof.com/users/my-user", "varwof.com", true},
+		{"empty domain", "spiffe:///agent/my-agent", "varwof.com", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := pki.ValidateSPIFFEID(tt.id, tt.domain)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSPIFFEID(%q, %q) error = %v, wantErr %v", tt.id, tt.domain, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBuildSPIFFEID(t *testing.T) {
+	id := pki.BuildSPIFFEID("varwof.com", "my-agent")
+	if id != "spiffe://varwof.com/agent/my-agent" {
+		t.Errorf("BuildSPIFFEID = %q, want spiffe://varwof.com/agent/my-agent", id)
+	}
+}
+
+func TestIsSPIFFEAgentID(t *testing.T) {
+	if !pki.IsSPIFFEAgentID("spiffe://varwof.com/agent/test") {
+		t.Error("expected true for SPIFFE ID")
+	}
+	if pki.IsSPIFFEAgentID("test") {
+		t.Error("expected false for plain agent ID")
+	}
+	// IsSPIFFEAgentID only checks the prefix, not the path
+	if !pki.IsSPIFFEAgentID("spiffe://varwof.com/users/test") {
+		t.Error("expected true for any spiffe:// prefix")
+	}
+}
+
+func TestExtractSPIFFEIDFromCert(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "test"},
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	cert, _ := x509.ParseCertificate(der)
+
+	// No SPIFFE URI
+	if got := pki.ExtractSPIFFEIDFromCert(cert); got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+
+	// With SPIFFE URI
+	cert.URIs = append(cert.URIs, &url.URL{
+		Scheme: "spiffe",
+		Host:   "varwof.com",
+		Path:   "/agent/test",
+	})
+	got := pki.ExtractSPIFFEIDFromCert(cert)
+	if got != "spiffe://varwof.com/agent/test" {
+		t.Errorf("ExtractSPIFFEIDFromCert = %q, want spiffe://varwof.com/agent/test", got)
+	}
+}
+
+func TestAddSPIFFESANToCert(t *testing.T) {
+	tmpl := &x509.Certificate{}
+	err := pki.AddSPIFFESANToCert(tmpl, "spiffe://varwof.com/agent/test")
+	if err != nil {
+		t.Fatalf("AddSPIFFESANToCert: %v", err)
+	}
+	if len(tmpl.URIs) != 1 {
+		t.Fatalf("expected 1 URI, got %d", len(tmpl.URIs))
+	}
+	if tmpl.URIs[0].String() != "spiffe://varwof.com/agent/test" {
+		t.Errorf("URI = %q", tmpl.URIs[0].String())
+	}
+
+	// Add another URI - should not duplicate
+	err = pki.AddSPIFFESANToCert(tmpl, "spiffe://varwof.com/agent/test")
+	if err != nil {
+		t.Fatalf("AddSPIFFESANToCert duplicate: %v", err)
+	}
+	if len(tmpl.URIs) != 1 {
+		t.Errorf("expected 1 URI after duplicate, got %d", len(tmpl.URIs))
+	}
+}
+
+func TestParseSPIFFEAgentName(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"spiffe://varwof.com/agent/scheduler-a", "scheduler-a"},
+		{"spiffe://varwof.com/agent/agent-01", "agent-01"},
+		{"not-spiffe", "not-spiffe"},
+		{"spiffe://varwof.com/agent/", ""},
+	}
+	for _, c := range cases {
+		if got := pki.ParseSPIFFEAgentName(c.in); got != c.want {
+			t.Errorf("ParseSPIFFEAgentName(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestParseSPIFFEDomain(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"spiffe://varwof.com/agent/scheduler-a", "varwof.com"},
+		{"spiffe://example.org/agent/x", "example.org"},
+		{"not-spiffe", ""},
+		{"spiffe:///agent/x", ""},
+	}
+	for _, c := range cases {
+		if got := pki.ParseSPIFFEDomain(c.in); got != c.want {
+			t.Errorf("ParseSPIFFEDomain(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestValidateMaxConcurrentParam(t *testing.T) {
+	if err := pki.ValidateMaxConcurrentParam(nil); err != nil {
+		t.Errorf("nil should pass, got %v", err)
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte("  ")); err != nil {
+		t.Errorf("blank should pass, got %v", err)
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte(`{"max":5}`)); err != nil {
+		t.Errorf("valid max should pass, got %v", err)
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte(`{"max":0}`)); err == nil {
+		t.Error("max below MinConcurrentMin should fail")
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte(`{"max":2000}`)); err == nil {
+		t.Error("max above MaxConcurrentMax should fail")
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte(`not-json`)); err == nil {
+		t.Error("invalid JSON should fail")
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte(`{"max":1}`)); err != nil {
+		t.Errorf("lower bound max should pass, got %v", err)
+	}
+	if err := pki.ValidateMaxConcurrentParam([]byte(`{"max":1024}`)); err != nil {
+		t.Errorf("upper bound max should pass, got %v", err)
 	}
 }

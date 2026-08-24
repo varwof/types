@@ -5,4 +5,4 @@
 package pki
 
 // Version is the package version, set via -ldflags -X github.com/varwof/types.Version=x.y.z.
-var Version = "0.1.0"
+var Version = "0.2.0"

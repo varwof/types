@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Jijie Wei (varwof)
+// SPDX-License-Identifier: Apache-2.0
+
 // Package aicjson is a reference implementation and conformance
 // test target for draft-wei-aic-jwt-00 (AIC-JWT: JSON Web Token
 // Profile for AI Agent Identity Certificates).

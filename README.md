@@ -2,6 +2,8 @@
 
 > Shared type definitions for AIC / Capability / PrincipalUid / DelegationAuthorization in the varwof PKI suite.
 
+> ⚠️ **Preview** — Not for production use. APIs and features may change before official release.
+
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Go Reference](https://pkg.go.dev/badge/github.com/varwof/types)](https://pkg.go.dev/github.com/varwof/types)
 

@@ -1,0 +1,3951 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>AI Agent Identity Certificate (AIC) Extension for X.509 v3</title>
+<meta content="Jijie Wei" name="author">
+<meta content="
+       This document defines the AI Agent Identity Certificate (AIC) Extension
+for X.509 v3 certificates. The AIC extension enables binding of an AI
+Agent's cryptographic identity to a natural person (principal),
+providing cryptographic evidence that can support attribution of
+AI-autonomous actions to a principal. This
+specification intentionally separates cryptographic delegation from
+authorization semantics: AIC defines the cryptographic binding between
+agent and principal, while all capability and policy semantics are
+defined externally by vendors, industries, or regulators. The extension
+is identified by the IANA Private Enterprise Number 66257
+assigned to the document author's organization. 
+       The AIC extension carries agent identity fields (agentId,
+delegationMode), a principal identifier (principalUid) linking the
+agent to the authorizing principal, a container-based
+capability declaration, authorization boundary constraints, and
+delegation authorization evidence with replay protection. A companion
+PrincipalAuthorization extension anchors Principal-side grant
+declarations and delegation policies. An authorizationConstraints
+container provides offline-verifiable execution boundaries (IP range,
+window). An extensibility framework allows vendor-specific and
+user-specific metadata. 
+       This document specifies the ASN.1 module, OID registration, field
+semantics, delegation model, and extensibility framework. Security
+considerations for deployment in regulated enterprise environments
+are discussed. 
+    " name="description">
+<meta content="xml2rfc 3.34.0" name="generator">
+<meta content="AI Agent" name="keyword">
+<meta content="X.509" name="keyword">
+<meta content="Certificate" name="keyword">
+<meta content="Identity" name="keyword">
+<meta content="PKI" name="keyword">
+<meta content="Accountability" name="keyword">
+<meta content="Delegation" name="keyword">
+<meta content="draft-wei-aic-identity-cert-00" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.34.0
+    Python 3.13.5
+    ConfigArgParse 1.7.5
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 5.4.0
+    natsort 8.4.0
+    platformdirs 4.3.7
+    pycountry 26.2.16
+    PyYAML 6.0.2
+    requests 2.34.2
+    wcwidth 0.2.13
+    weasyprint 69.0
+-->
+<link href="draft-00.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">/*
+
+  NOTE: Changes at the bottom of this file overrides some earlier settings.
+
+  Once the style has stabilized and has been adopted as an official RFC style,
+  this can be consolidated so that style settings occur only in one place, but
+  for now the contents of this file consists first of the initial CSS work as
+  provided to the RFC Formatter (xml2rfc) work, followed by itemized and
+  commented changes found necessary during the development of the v3
+  formatters.
+
+*/
+
+/* fonts */
+@import url('https://static.ietf.org/fonts/noto-sans/import.css'); /* Sans-serif */
+@import url('https://static.ietf.org/fonts/noto-serif/import.css'); /* Serif (print) */
+@import url('https://static.ietf.org/fonts/roboto-mono/import.css'); /* Monospace */
+
+:root {
+  --font-sans: 'Noto Sans', Arial, Helvetica, sans-serif;
+  --font-serif: 'Noto Serif', 'Times', 'Times New Roman', serif;
+  --font-mono: 'Roboto Mono', Courier, 'Courier New', monospace;
+}
+
+@viewport {
+  zoom: 1.0;
+}
+@-ms-viewport {
+  width: extend-to-zoom;
+  zoom: 1.0;
+}
+/* general and mobile first */
+html {
+}
+body {
+  max-width: 90%;
+  margin: 1.5em auto;
+  color: #222;
+  background-color: #fff;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  scroll-behavior: smooth;
+  overflow-wrap: break-word;
+}
+.ears {
+  display: none;
+}
+
+/* headings */
+#title, h1, h2, h3, h4, h5, h6 {
+  margin: 1em 0 0.5em;
+  font-weight: bold;
+  line-height: 1.3;
+}
+#title {
+  clear: both;
+  border-bottom: 1px solid #ddd;
+  margin: 0 0 0.5em 0;
+  padding: 1em 0 0.5em;
+}
+.author {
+  padding-bottom: 4px;
+}
+h1 {
+  font-size: 26px;
+  margin: 1em 0;
+}
+h2 {
+  font-size: 22px;
+  margin-top: -20px;  /* provide offset for in-page anchors */
+  padding-top: 33px;
+}
+h3 {
+  font-size: 18px;
+  margin-top: -36px;  /* provide offset for in-page anchors */
+  padding-top: 42px;
+}
+h4 {
+  font-size: 16px;
+  margin-top: -36px;  /* provide offset for in-page anchors */
+  padding-top: 42px;
+}
+h5, h6 {
+  font-size: 14px;
+}
+#n-copyright-notice {
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 1em;
+  margin-bottom: 1em;
+}
+/* general structure */
+p {
+  padding: 0;
+  margin: 0 0 1em 0;
+  text-align: left;
+}
+div, span {
+  position: relative;
+}
+div {
+  margin: 0;
+}
+.alignRight.art-text {
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 3px;
+  padding: 1em 1em 0;
+  margin-bottom: 1.5em;
+}
+.alignRight.art-text pre {
+  padding: 0;
+}
+.alignRight {
+  margin: 1em 0;
+}
+.alignRight > *:first-child {
+  border: none;
+  margin: 0;
+  float: right;
+  clear: both;
+}
+.alignRight > *:nth-child(2) {
+  clear: both;
+  display: block;
+  border: none;
+}
+svg {
+  display: block;
+}
+@media print {
+  svg {
+    max-height: 850px;
+    max-width: 660px;
+  }
+}
+svg[font-family~="serif" i], svg [font-family~="serif" i] {
+  font-family: var(--font-serif);
+}
+svg[font-family~="sans-serif" i], svg [font-family~="sans-serif" i] {
+  font-family: var(--font-sans);
+}
+svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
+  font-family: var(--font-mono);
+}
+.alignCenter.art-text {
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 3px;
+  padding: 1em 1em 0;
+  margin-bottom: 1.5em;
+}
+.alignCenter.art-text pre {
+  padding: 0;
+}
+.alignCenter {
+  margin: 1em 0;
+}
+.alignCenter > *:first-child {
+  display: table;
+  border: none;
+  margin: 0 auto;
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 1em 2em;
+}
+ol ol, ul ul, ol ul, ul ol {
+  margin-left: 1em;
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+.ulCompact li {
+  margin: 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+}
+ul.empty li, .ulEmpty li {
+  margin-top: 0.5em;
+}
+ul.ulBare, li.ulBare {
+  margin-left: 0em !important;
+}
+ul.compact, .ulCompact,
+ol.compact, .olCompact {
+  line-height: 100%;
+  margin: 0 0 0 2em;
+}
+
+/* definition lists */
+dl {
+}
+dl > dt {
+  float: left;
+  margin-right: 1em;
+}
+/* 
+dl.nohang > dt {
+  float: none;
+}
+*/
+dl > dd {
+  margin-bottom: .8em;
+  min-height: 1.3em;
+}
+dl.compact > dd, .dlCompact > dd {
+  margin-bottom: 0em;
+}
+dl > dd > dl {
+  margin-top: 0.5em;
+  margin-bottom: 0em;
+}
+
+/* links */
+a {
+  text-decoration: none;
+}
+a[href] {
+  color: #22e; /* Arlen: WCAG 2019 */
+}
+a[href]:hover {
+  background-color: #f2f2f2;
+}
+figcaption a[href],
+a[href].selfRef {
+  color: #222;
+}
+/* XXX probably not this:
+a.selfRef:hover {
+  background-color: transparent;
+  cursor: default;
+} */
+
+/* Figures */
+tt, code, pre {
+  background-color: #f9f9f9;
+  font-family: var(--font-mono);
+}
+pre {
+  border: 1px solid #eee;
+  margin: 0;
+  padding: 1em;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0;
+}
+figure blockquote {
+  margin: 0.8em 0.4em 0.4em;
+}
+figcaption {
+  font-style: italic;
+  margin: 0 0 1em 0;
+}
+@media screen {
+  pre {
+    overflow-x: auto;
+    max-width: 100%;
+    max-width: calc(100% - 22px);
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 1.2em 2em;
+}
+blockquote {
+  background-color: #f9f9f9;
+  color: #111; /* Arlen: WCAG 2019 */
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  margin: 1em 0;
+}
+blockquote > *:last-child {
+  margin-bottom: 0;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+.xref {
+  overflow-wrap: normal;
+}
+
+/* tables */
+table {
+  width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+  border: 1px solid #eee;
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.5em 0.75em;
+}
+th {
+  text-align: left;
+  background-color: #e9e9e9;
+}
+tr:nth-child(2n+1) > td {
+  background-color: #f5f5f5;
+}
+table caption {
+  font-style: italic;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+table p {
+  /* XXX to avoid bottom margin on table row signifiers. If paragraphs should
+     be allowed within tables more generally, it would be far better to select on a class. */
+  margin: 0;
+}
+
+/* pilcrow */
+a.pilcrow {
+  color: #666; /* Arlen: AHDJ 2019 */
+  text-decoration: none;
+  visibility: hidden;
+  user-select: none;
+  -ms-user-select: none;
+  -o-user-select:none;
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@media screen {
+  aside:hover > a.pilcrow,
+  p:hover > a.pilcrow,
+  blockquote:hover > a.pilcrow,
+  div:hover > a.pilcrow,
+  li:hover > a.pilcrow,
+  pre:hover > a.pilcrow {
+    visibility: visible;
+  }
+  a.pilcrow:hover {
+    background-color: transparent;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid #eee;
+}
+.bcp14 {
+  font-variant: small-caps;
+}
+
+.role {
+  font-variant: all-small-caps;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: 0.9em;
+}
+#identifiers dt {
+  width: 3em;
+  clear: left;
+}
+#identifiers dd {
+  float: left;
+  margin-bottom: 0;
+}
+/* Fix PDF info block run off issue */
+@media print {
+  #identifiers dd {
+    max-width: 100%;
+  }
+}
+#identifiers .authors .author {
+  display: inline-block;
+  margin-right: 1.5em;
+}
+#identifiers .authors .org {
+  font-style: italic;
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #666; /* Arlen: WCAG 2019 */
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+}
+.docInfo .prepared {
+  float: left;
+}
+.docInfo .prepared {
+  float: right;
+}
+
+/* table of contents */
+#toc  {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+}
+nav.toc ul {
+  margin: 0 0.5em 0 0;
+  padding: 0;
+  list-style: none;
+}
+nav.toc li {
+  line-height: 1.3em;
+  margin: 0.75em 0;
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+/* references */
+.references dt {
+  text-align: right;
+  font-weight: bold;
+  min-width: 7em;
+}
+.references dd {
+  margin-left: 8em;
+  overflow: auto;
+}
+
+.refInstance {
+  margin-bottom: 1.25em;
+}
+
+.refSubseries {
+  margin-bottom: 1.25em;
+}
+
+.references .ascii {
+  margin-bottom: 0.25em;
+}
+
+/* index */
+.index ul {
+  margin: 0 0 0 1em;
+  padding: 0;
+  list-style: none;
+}
+.index ul ul {
+  margin: 0;
+}
+.index li {
+  margin: 0;
+  text-indent: -2em;
+  padding-left: 2em;
+  padding-bottom: 5px;
+}
+.indexIndex {
+  margin: 0.5em 0 1em;
+}
+.index a {
+  font-weight: 700;
+}
+/* make the index two-column on all but the smallest screens */
+@media (min-width: 600px) {
+  .index ul {
+    -moz-column-count: 2;
+    -moz-column-gap: 20px;
+  }
+  .index ul ul {
+    -moz-column-count: 1;
+    -moz-column-gap: 0;
+  }
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  margin: 1em 0;
+}
+
+address.vcard .nameRole {
+  font-weight: 700;
+  margin-left: 0;
+}
+address.vcard .label {
+  font-family: var(--font-sans);
+  margin: 0.5em 0;
+}
+address.vcard .type {
+  display: none;
+}
+.alternative-contact {
+  margin: 1.5em 0 1em;
+}
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+
+/* temporary notes */
+.rfcEditorRemove::before {
+  position: absolute;
+  top: 0.2em;
+  right: 0.2em;
+  padding: 0.2em;
+  content: "The RFC Editor will remove this note";
+  color: #9e2a00; /* Arlen: WCAG 2019 */
+  background-color: #ffd; /* Arlen: WCAG 2019 */
+}
+.rfcEditorRemove {
+  position: relative;
+  padding-top: 1.8em;
+  background-color: #ffd; /* Arlen: WCAG 2019 */
+  border-radius: 3px;
+}
+.cref {
+  background-color: #ffd; /* Arlen: WCAG 2019 */
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+/* alternative layout for smaller screens */
+@media screen and (max-width: 1023px) {
+  body {
+    padding-top: 2em;
+  }
+  #title {
+    padding: 1em 0;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  h2 {
+    font-size: 20px;
+    margin-top: -18px;  /* provide offset for in-page anchors */
+    padding-top: 38px;
+  }
+  #identifiers dd {
+    max-width: 60%;
+  }
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 0;
+    margin: 0;
+    background-color: inherit;
+    border-bottom: 1px solid #ccc;
+  }
+  #toc h2 {
+    margin: -1px 0 0 0;
+    padding: 4px 0 4px 6px;
+    padding-right: 1em;
+    min-width: 190px;
+    font-size: 1.1em;
+    text-align: right;
+    background-color: #444;
+    color: white;
+    cursor: pointer;
+  }
+  #toc h2::before { /* css hamburger */
+    float: right;
+    position: relative;
+    width: 1em;
+    height: 1px;
+    left: -164px;
+    margin: 6px 0 0 0;
+    background: white none repeat scroll 0 0;
+    box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+    content: "";
+  }
+  #toc nav {
+    display: none;
+    padding: 0.5em 1em 1em;
+    overflow: auto;
+    height: calc(100vh - 48px);
+    border-left: 1px solid #ddd;
+  }
+}
+
+/* alternative layout for wide screens */
+@media screen and (min-width: 1024px) {
+  body {
+    max-width: 724px;
+    margin: 42px auto;
+    padding-left: 1.5em;
+    padding-right: 29em;
+  }
+  #toc {
+    position: fixed;
+    top: 42px;
+    right: 42px;
+    width: 25%;
+    margin: 0;
+    padding: 0 1em;
+    z-index: 1;
+  }
+  #toc h2 {
+    border-top: none;
+    border-bottom: 1px solid #ddd;
+    font-size: 1em;
+    font-weight: normal;
+    margin: 0;
+    padding: 0.25em 1em 1em 0;
+  }
+  #toc nav {
+    display: block;
+    height: calc(90vh - 84px);
+    bottom: 0;
+    padding: 0.5em 0 0;
+    overflow: auto;
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc, #n-introduction {
+    page-break-before: always;
+  }
+  #toc {
+    border-top: none;
+    padding-top: 0;
+  }
+  figure, pre {
+    page-break-inside: avoid;
+  }
+  figure {
+    overflow: scroll;
+  }
+  .breakable pre {
+    break-inside: auto;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  h2+*, h3+*, h4+*, h5+*, h6+* {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+/* This is commented out here, as the string-set: doesn't
+   pass W3C validation currently */
+/*
+.ears thead .left {
+  string-set: ears-top-left content();
+}
+
+.ears thead .center {
+  string-set: ears-top-center content();
+}
+
+.ears thead .right {
+  string-set: ears-top-right content();
+}
+
+.ears tfoot .left {
+  string-set: ears-bottom-left content();
+}
+
+.ears tfoot .center {
+  string-set: ears-bottom-center content();
+}
+
+.ears tfoot .right {
+  string-set: ears-bottom-right content();
+}
+*/
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+  /* The following is commented out here, but set appropriately by in code, as
+     the content depends on the document */
+  /*
+  @top-left {
+    content: 'Internet-Draft';
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @top-left {
+    content: string(ears-top-left);
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @top-center {
+    content: string(ears-top-center);
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @top-right {
+    content: string(ears-top-right);
+    vertical-align: bottom;
+    border-bottom: solid 1px #ccc;
+  }
+  @bottom-left {
+    content: string(ears-bottom-left);
+    vertical-align: top;
+    border-top: solid 1px #ccc;
+  }
+  @bottom-center {
+    content: string(ears-bottom-center);
+    vertical-align: top;
+    border-top: solid 1px #ccc;
+  }
+  @bottom-right {
+      content: '[Page ' counter(page) ']';
+      vertical-align: top;
+      border-top: solid 1px #ccc;
+  }
+  */
+
+}
+
+/* Changes introduced to fix issues found during implementation */
+/* Make sure links are clickable even if overlapped by following H* */
+a {
+  z-index: 2;
+}
+/* Separate body from document info even without intervening H1 */
+section {
+  clear: both;
+}
+
+
+/* Top align author divs, to avoid names without organization dropping level with org names */
+.author {
+  vertical-align: top;
+}
+
+/* Leave room in document info to show Internet-Draft on one line */
+#identifiers dt {
+  width: 8em;
+}
+
+/* Don't waste quite as much whitespace between label and value in doc info */
+#identifiers dd {
+  margin-left: 1em;
+}
+
+/* Give floating toc a background color (needed when it's a div inside section */
+#toc {
+  background-color: white;
+}
+
+/* Make the collapsed ToC header render white on gray also when it's a link */
+@media screen and (max-width: 1023px) {
+  #toc h2 a,
+  #toc h2 a:link,
+  #toc h2 a:focus,
+  #toc h2 a:hover,
+  #toc a.toplink,
+  #toc a.toplink:hover {
+    color: white;
+    background-color: #444;
+    text-decoration: none;
+  }
+}
+
+/* Give the bottom of the ToC some whitespace */
+@media screen and (min-width: 1024px) {
+  #toc {
+    padding: 0 0 1em 1em;
+  }
+}
+
+/* Style section numbers with more space between number and title */
+.section-number {
+  padding-right: 0.5em;
+}
+
+/* prevent monospace from becoming overly large */
+tt, code, pre {
+  font-size: 95%;
+}
+
+/* Fix the height/width aspect for ascii art*/
+.sourcecode pre,
+.art-text pre {
+  line-height: 1.12;
+}
+
+
+/* Add styling for a link in the ToC that points to the top of the document */
+a.toplink {
+  float: right;
+  margin-right: 0.5em;
+}
+
+/* Fix the dl styling to match the RFC 7992 attributes */
+dl > dt,
+dl.dlParallel > dt {
+  float: left;
+  margin-right: 1em;
+}
+dl.dlNewline > dt {
+  float: none;
+}
+
+/* Provide styling for table cell text alignment */
+table td.text-left,
+table th.text-left {
+  text-align: left;
+}
+table td.text-center,
+table th.text-center {
+  text-align: center;
+}
+table td.text-right,
+table th.text-right {
+  text-align: right;
+}
+
+/* Make the alternative author contact information look less like just another
+   author, and group it closer with the primary author contact information */
+.alternative-contact {
+  margin: 0.5em 0 0.25em 0;
+}
+address .non-ascii {
+  margin: 0 0 0 2em;
+}
+
+/* With it being possible to set tables with alignment
+  left, center, and right, { width: 100%; } does not make sense */
+table {
+  width: auto;
+}
+
+/* Avoid reference text that sits in a block with very wide left margin,
+   because of a long floating dt label.*/
+.references dd {
+  overflow: visible;
+}
+
+/* Control caption placement */
+caption {
+  caption-side: bottom;
+}
+
+/* Limit the width of the author address vcard, so names in right-to-left
+   script don't end up on the other side of the page. */
+
+address.vcard {
+  max-width: 30em;
+  margin-right: auto;
+}
+
+/* For address alignment dependent on LTR or RTL scripts */
+address div.left {
+  text-align: left;
+}
+address div.right {
+  text-align: right;
+}
+
+/* Provide table alignment support.  We can't use the alignX classes above
+   since they do unwanted things with caption and other styling. */
+table.right {
+ margin-left: auto;
+ margin-right: 0;
+}
+table.center {
+ margin-left: auto;
+ margin-right: auto;
+}
+table.left {
+ margin-left: 0;
+ margin-right: auto;
+}
+
+/* Give the table caption label the same styling as the figcaption */
+caption a[href] {
+  color: #222;
+}
+
+@media print {
+  .toplink {
+    display: none;
+  }
+
+  /* avoid overwriting the top border line with the ToC header */
+  #toc {
+    padding-top: 1px;
+  }
+
+  /* Avoid page breaks inside dl and author address entries */
+  .vcard {
+    page-break-inside: avoid;
+  }
+
+}
+/* Tweak the bcp14 keyword presentation */
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+/* Tweak the invisible space above H* in order not to overlay links in text above */
+ h2 {
+  margin-top: -18px;  /* provide offset for in-page anchors */
+  padding-top: 31px;
+ }
+ h3 {
+  margin-top: -18px;  /* provide offset for in-page anchors */
+  padding-top: 24px;
+ }
+ h4 {
+  margin-top: -18px;  /* provide offset for in-page anchors */
+  padding-top: 24px;
+ }
+/* Float artwork pilcrow to the right */
+@media screen {
+  .artwork a.pilcrow {
+    display: block;
+    line-height: 0.7;
+    margin-top: 0.15em;
+  }
+}
+/* Make pilcrows on dd visible */
+@media screen {
+  dd:hover > a.pilcrow {
+    visibility: visible;
+  }
+}
+/* Make the placement of figcaption match that of a table's caption
+   by removing the figure's added bottom margin */
+.alignLeft.art-text,
+.alignCenter.art-text,
+.alignRight.art-text {
+   margin-bottom: 0;
+}
+.alignLeft,
+.alignCenter,
+.alignRight {
+  margin: 1em 0 0 0;
+}
+/* In print, the pilcrow won't show on hover, so prevent it from taking up space,
+   possibly even requiring a new line */
+@media print {
+  a.pilcrow {
+    display: none;
+  }
+}
+/* Styling for the external metadata */
+div#external-metadata {
+  background-color: #eee;
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+  display: none;
+}
+div#internal-metadata {
+  padding: 0.5em;                       /* to match the external-metadata padding */
+}
+/* Styling for title RFC Number */
+h1#rfcnum {
+  clear: both;
+  margin: 0 0 -1em;
+  padding: 1em 0 0 0;
+}
+/* Make .olPercent look the same as <ol><li> */
+dl.olPercent > dd {
+  margin-bottom: 0.25em;
+  min-height: initial;
+}
+/* Give aside some styling to set it apart */
+aside {
+  border-left: 1px solid #ddd;
+  margin: 1em 0 1em 2em;
+  padding: 0.2em 2em;
+}
+aside > dl,
+aside > ol,
+aside > ul,
+aside > table,
+aside > p {
+  margin-bottom: 0.5em;
+}
+/* Additional page break settings */
+@media print {
+  figcaption, table caption {
+    page-break-before: avoid;
+  }
+}
+/* Font size adjustments for print */
+@media print {
+  body  { font-size: 10pt;      line-height: normal; max-width: 96%; }
+  h1    { font-size: 1.72em;    padding-top: 1.5em; } /* 1*1.2*1.2*1.2 */
+  h2    { font-size: 1.44em;    padding-top: 1.5em; } /* 1*1.2*1.2 */
+  h3    { font-size: 1.2em;     padding-top: 1.5em; } /* 1*1.2 */
+  h4    { font-size: 1em;       padding-top: 1.5em; }
+  h5, h6 { font-size: 1em;      margin: initial; padding: 0.5em 0 0.3em; }
+}
+/* Sourcecode margin in print, when there's no pilcrow */
+@media print {
+  .artwork,
+  .artwork > pre,
+  .sourcecode {
+    margin-bottom: 1em;
+  }
+}
+/* Avoid narrow tables forcing too narrow table captions, which may render badly */
+table {
+  min-width: 20em;
+}
+/* ol type a */
+ol.type-a { list-style-type: lower-alpha; }
+ol.type-A { list-style-type: upper-alpha; }
+ol.type-i { list-style-type: lower-roman; }
+ol.type-I { list-style-type: upper-roman; }
+/* Apply the print table and row borders in general, on request from the RPC,
+and increase the contrast between border and odd row background slightly */
+table {
+  border: 1px solid #ddd;
+}
+td {
+  border-top: 1px solid #ddd;
+}
+tr {
+  break-inside: avoid;
+}
+tr:nth-child(2n+1) > td {
+  background-color: #f8f8f8;
+}
+/* Use style rules to govern display of the TOC. */
+@media screen and (max-width: 1023px) {
+  #toc nav { display: none; }
+  #toc.active nav { display: block; }
+}
+/* Add support for keepWithNext */
+.keepWithNext {
+  break-after: avoid-page;
+  break-after: avoid-page;
+}
+/* Add support for keepWithPrevious */
+.keepWithPrevious {
+  break-before: avoid-page;
+}
+/* Change the approach to avoiding breaks inside artwork etc. */
+figure, pre, table, .artwork, .sourcecode  {
+  break-before: auto;
+  break-after: auto;
+}
+/* Avoid breaks between <dt> and <dd> */
+dl {
+  break-before: auto;
+  break-inside: auto;
+}
+dt {
+  break-before: auto;
+  break-after: avoid-page;
+}
+dd {
+  break-before: avoid-page;
+  break-after: auto;
+  orphans: 3;
+  widows: 3
+}
+span.break, dd.break {
+  margin-bottom: 0;
+  min-height: 0;
+  break-before: auto;
+  break-inside: auto;
+  break-after: auto;
+}
+/* Undo break-before ToC */
+@media print {
+  #toc {
+    break-before: auto;
+  }
+}
+/* Text in compact lists should not get extra bottom margin space,
+   since that would makes the list not compact */
+ul.compact p, .ulCompact p,
+ol.compact p, .olCompact p {
+ margin: 0;
+}
+/* But the list as a whole needs the extra space at the end */
+section ul.compact,
+section .ulCompact,
+section ol.compact,
+section .olCompact {
+  margin-bottom: 1em;                    /* same as p not within ul.compact etc. */
+}
+/* The tt and code background above interferes with for instance table cell
+   backgrounds.  Changed to something a bit more selective. */
+tt, code {
+  background-color: transparent;
+}
+p tt, p code, li tt, li code, dt tt, dt code {
+  background-color: #f8f8f8;
+}
+/* Tweak the pre margin -- 0px doesn't come out well */
+pre {
+   margin-top: 0.5px;
+}
+/* Tweak the compact list text */
+ul.compact, .ulCompact,
+ol.compact, .olCompact,
+dl.compact, .dlCompact {
+  line-height: normal;
+}
+/* Don't add top margin for nested lists */
+li > ul, li > ol, li > dl,
+dd > ul, dd > ol, dd > dl,
+dl > dd > dl {
+  margin-top: initial;
+}
+/* Elements that should not be rendered on the same line as a <dt> */
+/* This should match the element list in writer.text.TextWriter.render_dl() */
+dd > div.artwork:first-child,
+dd > aside:first-child,
+dd > blockquote:first-child,
+dd > figure:first-child,
+dd > ol:first-child,
+dd > div.sourcecode:first-child,
+dd > table:first-child,
+dd > ul:first-child {
+  clear: left;
+}
+/* fix for weird browser behaviour when <dd/> is empty */
+dt+dd:empty::before{
+  content: "\00a0";
+}
+/* Make paragraph spacing inside <li> smaller than in body text, to fit better within the list */
+li > p {
+  margin-bottom: 0.5em
+}
+/* Don't let p margin spill out from inside list items */
+li > p:last-of-type:only-child {
+  margin-bottom: 0;
+}
+</style>
+<link href="rfc-local.css" rel="stylesheet" type="text/css">
+<script type="application/javascript">async function addMetadata(){try{const e=document.styleSheets[0].cssRules;for(let t=0;t<e.length;t++)if(/#identifiers/.exec(e[t].selectorText)){const a=e[t].cssText.replace("#identifiers","#external-updates");document.styleSheets[0].insertRule(a,document.styleSheets[0].cssRules.length)}}catch(e){console.log(e)}const e=document.getElementById("external-metadata");if(e)try{var t,a="",o=function(e){const t=document.getElementsByTagName("meta");for(let a=0;a<t.length;a++)if(t[a].getAttribute("name")===e)return t[a].getAttribute("content");return""}("rfc.number");if(o){t="https://www.rfc-editor.org/rfc/rfc"+o+".json";try{const e=await fetch(t);a=await e.json()}catch(e){t=document.URL.indexOf("html")>=0?document.URL.replace(/html$/,"json"):document.URL+".json";const o=await fetch(t);a=await o.json()}}if(!a)return;e.style.display="block";const s="",d="https://datatracker.ietf.org/doc",n="https://datatracker.ietf.org/ipr/search",c="https://www.rfc-editor.org/info",l=a.doc_id.toLowerCase(),i=a.doc_id.slice(0,3).toLowerCase(),f=a.doc_id.slice(3).replace(/^0+/,""),u={status:"Status",obsoletes:"Obsoletes",obsoleted_by:"Obsoleted By",updates:"Updates",updated_by:"Updated By",see_also:"See Also",errata_url:"Errata"};let h="<dl style='overflow:hidden' id='external-updates'>";["status","obsoletes","obsoleted_by","updates","updated_by","see_also","errata_url"].forEach(e=>{if("status"==e){a[e]=a[e].toLowerCase();var t=a[e].split(" "),o=t.length,w="",p=1;for(let e=0;e<o;e++)p<o?w=w+r(t[e])+" ":w+=r(t[e]),p++;a[e]=w}else if("obsoletes"==e||"obsoleted_by"==e||"updates"==e||"updated_by"==e){var g,m="",b=1;g=a[e].length;for(let t=0;t<g;t++)a[e][t]&&(a[e][t]=String(a[e][t]).toLowerCase(),m=b<g?m+"<a href='"+s+"/rfc/".concat(a[e][t])+"'>"+a[e][t].slice(3)+"</a>, ":m+"<a href='"+s+"/rfc/".concat(a[e][t])+"'>"+a[e][t].slice(3)+"</a>",b++);a[e]=m}else if("see_also"==e){var y,L="",C=1;y=a[e].length;for(let t=0;t<y;t++)if(a[e][t]){a[e][t]=String(a[e][t]);var _=a[e][t].slice(0,3),v=a[e][t].slice(3).replace(/^0+/,"");L=C<y?"RFC"!=_?L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+_+" "+v+"</a>, ":L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+v+"</a>, ":"RFC"!=_?L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+_+" "+v+"</a>":L+"<a href='"+s+"/info/"+_.toLowerCase().concat(v.toLowerCase())+"'>"+v+"</a>",C++}a[e]=L}else if("errata_url"==e){var R="";R=a[e]?R+"<a href='"+a[e]+"'>Errata exist</a> | <a href='"+d+"/"+l+"'>Datatracker</a>| <a href='"+n+"/?"+i+"="+f+"&submit="+i+"'>IPR</a> | <a href='"+c+"/"+l+"'>Info page</a>":"<a href='"+d+"/"+l+"'>Datatracker</a> | <a href='"+n+"/?"+i+"="+f+"&submit="+i+"'>IPR</a> | <a href='"+c+"/"+l+"'>Info page</a>",a[e]=R}""!=a[e]?"Errata"==u[e]?h+=`<dt>More info:</dt><dd>${a[e]}</dd>`:h+=`<dt>${u[e]}:</dt><dd>${a[e]}</dd>`:"Errata"==u[e]&&(h+=`<dt>More info:</dt><dd>${a[e]}</dd>`)}),h+="</dl>",e.innerHTML=h}catch(e){console.log(e)}else console.log("Could not locate metadata <div> element");function r(e){return e.charAt(0).toUpperCase()+e.slice(1)}}window.removeEventListener("load",addMetadata),window.addEventListener("load",addMetadata);</script>
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">AIC Certificate</td>
+<td class="right">August 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Wei</td>
+<td class="center">Expires 20 February 2027</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">Network Working Group</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-wei-aic-identity-cert-00</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-08-19" class="published">19 August 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Experimental</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2027-02-20">20 February 2027</time></dd>
+<dt class="label-authors">Author:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">J. Wei</div>
+<div class="org">Individual</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">AI Agent Identity Certificate (AIC) Extension for X.509 v3</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document defines the AI Agent Identity Certificate (AIC) Extension
+for X.509 v3 certificates. The AIC extension enables binding of an AI
+Agent's cryptographic identity to a natural person (principal),
+providing cryptographic evidence that can support attribution of
+AI-autonomous actions to a principal. This
+specification intentionally separates cryptographic delegation from
+authorization semantics: AIC defines the cryptographic binding between
+agent and principal, while all capability and policy semantics are
+defined externally by vendors, industries, or regulators. The extension
+is identified by the IANA Private Enterprise Number 66257
+assigned to the document author's organization.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-2">The AIC extension carries agent identity fields (agentId,
+delegationMode), a principal identifier (principalUid) linking the
+agent to the authorizing principal, a container-based
+capability declaration, authorization boundary constraints, and
+delegation authorization evidence with replay protection. A companion
+PrincipalAuthorization extension anchors Principal-side grant
+declarations and delegation policies. An authorizationConstraints
+container provides offline-verifiable execution boundaries (IP range,
+window). An extensibility framework allows vendor-specific and
+user-specific metadata.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
+<p id="section-abstract-3">This document specifies the ASN.1 module, OID registration, field
+semantics, delegation model, and extensibility framework. Security
+considerations for deployment in regulated enterprise environments
+are discussed.<a href="#section-abstract-3" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 20 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.1">
+                <p id="section-toc.1-1.1.2.1.1" class="keepWithNext"><a href="#section-1.1" class="auto internal xref">1.1</a>.  <a href="#name-problem-statement" class="internal xref">Problem Statement</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.2">
+                <p id="section-toc.1-1.1.2.2.1" class="keepWithNext"><a href="#section-1.2" class="auto internal xref">1.2</a>.  <a href="#name-scope" class="internal xref">Scope</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.3">
+                <p id="section-toc.1-1.1.2.3.1" class="keepWithNext"><a href="#section-1.3" class="auto internal xref">1.3</a>.  <a href="#name-design-principles" class="internal xref">Design Principles</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.4">
+                <p id="section-toc.1-1.1.2.4.1"><a href="#section-1.4" class="auto internal xref">1.4</a>.  <a href="#name-requirements-language" class="internal xref">Requirements Language</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.5">
+                <p id="section-toc.1-1.1.2.5.1"><a href="#section-1.5" class="auto internal xref">1.5</a>.  <a href="#name-related-work" class="internal xref">Related Work</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-delegation-model" class="internal xref">Delegation Model</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.1">
+                <p id="section-toc.1-1.2.2.1.1"><a href="#section-2.1" class="auto internal xref">2.1</a>.  <a href="#name-delegation-modes" class="internal xref">Delegation Modes</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.1.2.1">
+                    <p id="section-toc.1-1.2.2.1.2.1.1"><a href="#section-2.1.1" class="auto internal xref">2.1.1</a>.  <a href="#name-security-envelope-model" class="internal xref">Security Envelope Model</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.2">
+                <p id="section-toc.1-1.2.2.2.1"><a href="#section-2.2" class="auto internal xref">2.2</a>.  <a href="#name-permission-intersection" class="internal xref">Permission Intersection</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.3">
+                <p id="section-toc.1-1.2.2.3.1"><a href="#section-2.3" class="auto internal xref">2.3</a>.  <a href="#name-multi-level-delegation" class="internal xref">Multi-Level Delegation</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-certificate-profile-data-mo" class="internal xref">Certificate Profile (Data Model)</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-aic-extension-definition" class="internal xref">AIC Extension Definition</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-oid-tree" class="internal xref">OID Tree</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-capability-glob-matching-sy" class="internal xref">Capability Glob Matching Syntax</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
+                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-asn1-module" class="internal xref">ASN.1 Module</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-example-aic-extension-encod" class="internal xref">Example AIC Extension Encoding</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5">
+                <p id="section-toc.1-1.4.2.5.1"><a href="#section-4.5" class="auto internal xref">4.5</a>.  <a href="#name-field-definitions" class="internal xref">Field Definitions</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.1">
+                    <p id="section-toc.1-1.4.2.5.2.1.1"><a href="#section-4.5.1" class="auto internal xref">4.5.1</a>.  <a href="#name-agentid" class="internal xref">agentId</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.2">
+                    <p id="section-toc.1-1.4.2.5.2.2.1"><a href="#section-4.5.2" class="auto internal xref">4.5.2</a>.  <a href="#name-delegationmode" class="internal xref">delegationMode</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.3">
+                    <p id="section-toc.1-1.4.2.5.2.3.1"><a href="#section-4.5.3" class="auto internal xref">4.5.3</a>.  <a href="#name-principaluid" class="internal xref">principalUid</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.4">
+                    <p id="section-toc.1-1.4.2.5.2.4.1"><a href="#section-4.5.4" class="auto internal xref">4.5.4</a>.  <a href="#name-capabilities" class="internal xref">capabilities</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.5">
+                    <p id="section-toc.1-1.4.2.5.2.5.1"><a href="#section-4.5.5" class="auto internal xref">4.5.5</a>.  <a href="#name-authorizationconstraints" class="internal xref">authorizationConstraints</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.6">
+                    <p id="section-toc.1-1.4.2.5.2.6.1"><a href="#section-4.5.6" class="auto internal xref">4.5.6</a>.  <a href="#name-delegationauthorization" class="internal xref">delegationAuthorization</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.7">
+                    <p id="section-toc.1-1.4.2.5.2.7.1"><a href="#section-4.5.7" class="auto internal xref">4.5.7</a>.  <a href="#name-extensions-and-extensibilit" class="internal xref">Extensions and Extensibility</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.8">
+                    <p id="section-toc.1-1.4.2.5.2.8.1"><a href="#section-4.5.8" class="auto internal xref">4.5.8</a>.  <a href="#name-certificate-size-constraint" class="internal xref">Certificate Size Constraints</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5.2.9">
+                    <p id="section-toc.1-1.4.2.5.2.9.1"><a href="#section-4.5.9" class="auto internal xref">4.5.9</a>.  <a href="#name-capability-parameters-inter" class="internal xref">Capability Parameters Intersection</a></p>
+</li>
+                </ul>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-validation-procedure" class="internal xref">Validation Procedure</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-validation-pipeline" class="internal xref">Validation Pipeline</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-offline-validation" class="internal xref">Offline Validation</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-principalauthorization-exte" class="internal xref">PrincipalAuthorization Extension</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-asn1-definition" class="internal xref">ASN.1 Definition</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-principal-key-rotation" class="internal xref">Principal Key Rotation</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-deployment-models" class="internal xref">Deployment Models</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-enterprise-regulated-model" class="internal xref">Enterprise/Regulated Model</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-consumer-individual-model" class="internal xref">Consumer/Individual Model</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-extensibility-framework" class="internal xref">Extensibility Framework</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-privacy-considerations-gdpr" class="internal xref">Privacy Considerations (GDPR / Right to Erasure)</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-threat-model" class="internal xref">Threat Model</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-threat-mitigations" class="internal xref">Threat Mitigations</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
+                <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-offline-validation-risks" class="internal xref">Offline Validation Risks</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.4">
+                <p id="section-toc.1-1.10.2.4.1"><a href="#section-10.4" class="auto internal xref">10.4</a>.  <a href="#name-authorization-constraint-in" class="internal xref">Authorization Constraint Integrity</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.5">
+                <p id="section-toc.1-1.10.2.5.1"><a href="#section-10.5" class="auto internal xref">10.5</a>.  <a href="#name-principal-key-hash-binding" class="internal xref">Principal Key Hash Binding</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.6">
+                <p id="section-toc.1-1.10.2.6.1"><a href="#section-10.6" class="auto internal xref">10.6</a>.  <a href="#name-nonce-replay-protection" class="internal xref">Nonce Replay Protection</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.1">
+                <p id="section-toc.1-1.11.2.1.1"><a href="#section-11.1" class="auto internal xref">11.1</a>.  <a href="#name-private-enterprise-number-a" class="internal xref">Private Enterprise Number Assignment</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.2">
+                <p id="section-toc.1-1.11.2.2.1"><a href="#section-11.2" class="auto internal xref">11.2</a>.  <a href="#name-oid-registration" class="internal xref">OID Registration</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.3">
+                <p id="section-toc.1-1.11.2.3.1"><a href="#section-11.3" class="auto internal xref">11.3</a>.  <a href="#name-capability-scheme-registry" class="internal xref">Capability Scheme Registry</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-implementation-status" class="internal xref">Implementation Status</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-interoperability" class="internal xref">Interoperability</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1">
+                <p id="section-toc.1-1.13.2.1.1"><a href="#section-13.1" class="auto internal xref">13.1</a>.  <a href="#name-relationship-to-standard-x5" class="internal xref">Relationship to Standard X.509 Extensions</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1.2.1">
+                    <p id="section-toc.1-1.13.2.1.2.1.1"><a href="#section-13.1.1" class="auto internal xref">13.1.1</a>.  <a href="#name-key-usage-and-extended-key-" class="internal xref">Key Usage and Extended Key Usage</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1.2.2">
+                    <p id="section-toc.1-1.13.2.1.2.2.1"><a href="#section-13.1.2" class="auto internal xref">13.1.2</a>.  <a href="#name-basic-constraints" class="internal xref">Basic Constraints</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.2">
+                <p id="section-toc.1-1.13.2.2.1"><a href="#section-13.2" class="auto internal xref">13.2</a>.  <a href="#name-interoperability-test-matri" class="internal xref">Interoperability Test Matrix</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.3">
+                <p id="section-toc.1-1.13.2.3.1"><a href="#section-13.3" class="auto internal xref">13.3</a>.  <a href="#name-tls-integration" class="internal xref">TLS Integration</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.3.2.1">
+                    <p id="section-toc.1-1.13.2.3.2.1.1"><a href="#section-13.3.1" class="auto internal xref">13.3.1</a>.  <a href="#name-handshake-requirements" class="internal xref">Handshake Requirements</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.3.2.2">
+                    <p id="section-toc.1-1.13.2.3.2.2.1"><a href="#section-13.3.2" class="auto internal xref">13.3.2</a>.  <a href="#name-tls-alert-codes" class="internal xref">TLS Alert Codes</a></p>
+</li>
+                </ul>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#section-14" class="auto internal xref">14</a>. <a href="#name-limitations" class="internal xref">Limitations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
+            <p id="section-toc.1-1.15.1"><a href="#section-15" class="auto internal xref">15</a>. <a href="#name-intellectual-property" class="internal xref">Intellectual Property</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16">
+            <p id="section-toc.1-1.16.1"><a href="#section-16" class="auto internal xref">16</a>. <a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17">
+            <p id="section-toc.1-1.17.1"><a href="#section-17" class="auto internal xref">17</a>. <a href="#name-change-log" class="internal xref">Change Log</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18">
+            <p id="section-toc.1-1.18.1"><a href="#section-18" class="auto internal xref">18</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18.2.1">
+                <p id="section-toc.1-1.18.2.1.1"><a href="#section-18.1" class="auto internal xref">18.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18.2.2">
+                <p id="section-toc.1-1.18.2.2.1"><a href="#section-18.2" class="auto internal xref">18.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.19">
+            <p id="section-toc.1-1.19.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-address" class="internal xref">Author's Address</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<div id="problem-statement">
+<section id="section-1.1">
+        <h3 id="name-problem-statement">
+<a href="#section-1.1" class="section-number selfRef">1.1. </a><a href="#name-problem-statement" class="section-name selfRef">Problem Statement</a>
+        </h3>
+<p id="section-1.1-1">Existing X.509 public key certificates, as profiled in <span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>,
+primarily authenticate identity through a cryptographically signed
+binding between a distinguished name and a public key. Authorization
+is intentionally left outside the certificate: relying parties
+perform access control via external IAM policies, OAuth scopes, RBAC
+databases, or policy engines evaluated after TLS connection
+establishment.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
+<p id="section-1.1-2">Autonomous AI agents introduce a new requirement that existing
+certificate profiles do not address. When an agent acts on behalf
+of a principal, the relying party needs answers to additional
+questions:<a href="#section-1.1-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1.1-3.1">
+            <p id="section-1.1-3.1.1">Who delegated this authority?<a href="#section-1.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-3.2">
+            <p id="section-1.1-3.2.1">What operations are authorized?<a href="#section-1.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-3.3">
+            <p id="section-1.1-3.3.1">Under what constraints may the agent operate?<a href="#section-1.1-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-3.4">
+            <p id="section-1.1-3.4.1">How long is the authorization valid?<a href="#section-1.1-3.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-3.5">
+            <p id="section-1.1-3.5.1">Who remains accountable for the actions performed?<a href="#section-1.1-3.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-1.1-4">These questions cannot be answered by identity alone. They require a
+standardized mechanism to express delegation relationships, capability
+constraints, authorization boundaries, and accountability chains
+within the certificate itself.<a href="#section-1.1-4" class="pilcrow">¶</a></p>
+<p id="section-1.1-5">This document defines an X.509 certificate extension that addresses
+this gap. The AI Agent Identity Certificate (AIC) extension encodes
+agent identity, principal binding, capability declarations, delegation
+modality, authorization boundary constraints, and cryptographic
+delegation authorization within a single certificate. A companion
+PrincipalAuthorization extension anchors principal-side grant
+declarations, authorization constraints, and delegation policies.<a href="#section-1.1-5" class="pilcrow">¶</a></p>
+<p id="section-1.1-6">AIC is designed to complement existing identity infrastructure:<a href="#section-1.1-6" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1.1-7.1">
+            <p id="section-1.1-7.1.1"><strong>SPIFFE/WIMSE</strong> identifies workloads via SAN URIs. AIC adds
+capability containers, principal binding, and session control on
+top of workload identity.<a href="#section-1.1-7.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-7.2">
+            <p id="section-1.1-7.2.1"><strong>OAuth 2.0 and JWT-based authorization</strong> (<span>[<a href="#RFC6749" class="cite xref">RFC6749</a>]</span>) provides
+online token exchange. AIC enables offline authorization decisions
+during the TLS handshake, without external identity provider
+lookups.<a href="#section-1.1-7.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-7.3">
+            <p id="section-1.1-7.3.1"><strong>Standard X.509 extensions</strong> (Certificate Policies, Extended Key
+Usage) express intended use but not delegation relationships or
+fine-grained capability constraints.<a href="#section-1.1-7.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-1.1-8">AIC is intended for deployments where:<a href="#section-1.1-8" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1.1-9.1">
+            <p id="section-1.1-9.1.1">AIC is intended to support deployments that reuse existing PKI
+infrastructure (enterprise CAs, HSMs, smart cards);<a href="#section-1.1-9.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-9.2">
+            <p id="section-1.1-9.2.1">Emerging regulatory frameworks require cryptographic traceability
+of autonomous actions to accountable principals;<a href="#section-1.1-9.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-9.3">
+            <p id="section-1.1-9.3.1">Offline or air-gapped environments require self-contained
+certificate authorization without external database lookups;<a href="#section-1.1-9.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-9.4">
+            <p id="section-1.1-9.4.1">Short-lived workload identities need to be augmented with legal
+accountability metadata.<a href="#section-1.1-9.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-1.1-10">This document specifies the data model, certificate profile, and
+validation requirements for AIC. Deployment-specific policy,
+implementation details, and performance characteristics are outside
+the scope of this specification.<a href="#section-1.1-10" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="scope">
+<section id="section-1.2">
+        <h3 id="name-scope">
+<a href="#section-1.2" class="section-number selfRef">1.2. </a><a href="#name-scope" class="section-name selfRef">Scope</a>
+        </h3>
+<p id="section-1.2-1">This document is organized into three categories:<a href="#section-1.2-1" class="pilcrow">¶</a></p>
+<p id="section-1.2-2"><strong>Normative (Core):</strong> The following sections are normative: Delegation
+Model, Certificate Profile (Data Model), AIC Extension Definition,
+Validation Procedure, and PrincipalAuthorization Extension, including
+their ASN.1 definitions. Implementations MUST conform to these
+sections to claim AIC compliance.<a href="#section-1.2-2" class="pilcrow">¶</a></p>
+<p id="section-1.2-3"><strong>Informative (Profile):</strong> The Deployment Models section describes
+recommended deployment patterns and gateway behavior. These are not
+required for AIC compliance but represent best practices.<a href="#section-1.2-3" class="pilcrow">¶</a></p>
+<p id="section-1.2-4"><strong>Informative (Reference):</strong> The Implementation Status section
+describes a reference implementation. These are provided as
+implementation guidance and interoperability examples.<a href="#section-1.2-4" class="pilcrow">¶</a></p>
+<p id="section-1.2-5">The core normative content intentionally separates cryptographic
+delegation from authorization semantics: AIC defines the cryptographic
+binding between agent and principal, while capability and policy
+semantics are defined externally.<a href="#section-1.2-5" class="pilcrow">¶</a></p>
+<div class="lang-text sourcecode" id="section-1.2-6">
+<pre>
+                     AIC Architecture
+
+   +----------------+      +------------------+
+   |   Principal    |      |      Agent       |
+   | (User/Org)     |      | (AI Agent)       |
+   | PrincipalAuth  |      | AIC Certificate  |
+   | Certificate    |      | Identity +       |
+   |                |      | Capabilities +   |
+   +-------+--------+      | Delegation Mode  |
+           |               +--------+---------+
+           | Authorization           |
+           | signature               |
+           +-------+-----------------+
+                   |
+                   v
+         +---------------------+
+         |    Gateway (PEP)    |
+         |  1. Verify Chain    |
+         |  2. Parse AIC       |
+         |  3. Verify DA       |
+         |  4. Check PA constr |
+         |  5. Check AIC constr|
+         |  6. Check Caps      |
+         |  7. Apply Policy    |
+         |  8. Decision        |
+         +---------+-----------+
+                   |
+         +---------v-----------+
+         |     Target          |
+         |   Resource / API    |
+         +---------------------+
+</pre><a href="#section-1.2-6" class="pilcrow">¶</a>
+</div>
+</section>
+</div>
+<div id="design-principles">
+<section id="section-1.3">
+        <h3 id="name-design-principles">
+<a href="#section-1.3" class="section-number selfRef">1.3. </a><a href="#name-design-principles" class="section-name selfRef">Design Principles</a>
+        </h3>
+<p id="section-1.3-1">This specification is guided by seven orthogonal concerns, each
+addressed by a distinct layer:<a href="#section-1.3-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Concern</th>
+              <th class="text-left" rowspan="1" colspan="1">Layer</th>
+              <th class="text-left" rowspan="1" colspan="1">Question</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Identity</td>
+              <td class="text-left" rowspan="1" colspan="1">AgentIdentity</td>
+              <td class="text-left" rowspan="1" colspan="1">"Who are you?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Authorization</td>
+              <td class="text-left" rowspan="1" colspan="1">PrincipalAuthorization</td>
+              <td class="text-left" rowspan="1" colspan="1">"Who authorizes you?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Capability</td>
+              <td class="text-left" rowspan="1" colspan="1">Capability (Container)</td>
+              <td class="text-left" rowspan="1" colspan="1">"What are you allowed to do?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Delegation</td>
+              <td class="text-left" rowspan="1" colspan="1">DelegationPolicy</td>
+              <td class="text-left" rowspan="1" colspan="1">"How are you allowed to act?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Constraints</td>
+              <td class="text-left" rowspan="1" colspan="1">authorizationConstraints</td>
+              <td class="text-left" rowspan="1" colspan="1">"Under what boundaries?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Enforcement</td>
+              <td class="text-left" rowspan="1" colspan="1">Gateway</td>
+              <td class="text-left" rowspan="1" colspan="1">"Is this request allowed now?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Trust</td>
+              <td class="text-left" rowspan="1" colspan="1">X.509 (PKI)</td>
+              <td class="text-left" rowspan="1" colspan="1">"Is this certificate trustworthy?"</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Transport</td>
+              <td class="text-left" rowspan="1" colspan="1">TLS</td>
+              <td class="text-left" rowspan="1" colspan="1">"Is this channel secure?"</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-1.3-3">AIC does not redefine trust, transport, or cryptography. It
+complements X.509 by introducing three orthogonal concepts: Agent
+Identity, Principal Authorization, and Capability Container. Trust
+remains in PKI, transport remains in TLS, and enforcement remains in
+the Gateway.<a href="#section-1.3-3" class="pilcrow">¶</a></p>
+<p id="section-1.3-4">AIC defines the representation and cryptographic binding of
+authorization-related information (agent identity, principal binding,
+capability container, constraint container, and delegation evidence).
+It does not define a universal authorization language: whether an
+operation is permitted is decided by the capability scheme and the
+deployment policy, not by the AIC extension itself.<a href="#section-1.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="requirements-language">
+<section id="section-1.4">
+        <h3 id="name-requirements-language">
+<a href="#section-1.4" class="section-number selfRef">1.4. </a><a href="#name-requirements-language" class="section-name selfRef">Requirements Language</a>
+        </h3>
+<p id="section-1.4-1">The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+"OPTIONAL" in this document are to be interpreted as described in
+BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and
+only when, they appear in all
+capitals, as shown here.<a href="#section-1.4-1" class="pilcrow">¶</a></p>
+<p id="section-1.4-2">The following terms are used throughout this document:<a href="#section-1.4-2" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-1.4-3">
+          <dt id="section-1.4-3.1">AIC:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.2">
+            <p id="section-1.4-3.2.1">AI Agent Identity Certificate Extension -- the X.509 v3 extension
+defined in this document.<a href="#section-1.4-3.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.3">Agent:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.4">
+            <p id="section-1.4-3.4.1">For the purpose of this document, an AI Agent is a software or
+hardware entity capable of performing actions on behalf of a
+principal with varying degrees of autonomy.<a href="#section-1.4-3.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.5">Principal:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.6">
+            <p id="section-1.4-3.6.1">The natural person or organizational entity that authorizes an
+Agent to act on its behalf. Whether a Principal is legally
+responsible for actions performed by an Agent is determined by
+applicable law and deployment policy and is outside the scope of
+this specification.<a href="#section-1.4-3.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.7">Delegation Mode:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.8">
+            <p id="section-1.4-3.8.1">The protocol-defined relationship between an Agent and its
+Principal for attribution and authorization purposes. The
+interpretation of these modes under applicable law is outside the
+scope of this specification.
+In authorized mode, the Agent acts under its own identity with
+principal consent. In representative mode, the Agent acts on behalf
+of the Principal within the delegated permission scope.<a href="#section-1.4-3.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.9">Capability:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.10">
+            <p id="section-1.4-3.10.1">A container for protocol-level operations that an Agent is
+authorized to perform, defined by a scheme identifier and a
+capability identifier within that scheme.<a href="#section-1.4-3.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.11">Capability Scheme:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.12">
+            <p id="section-1.4-3.12.1">A system identified by a scheme identifier (schemeId) that defines
+the semantics of capabilities. Gateways route capability evaluation
+to scheme-specific plugins by schemeId.<a href="#section-1.4-3.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.13">Credential Bundle:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.14">
+            <p id="section-1.4-3.14.1">The certificates presented by an Agent during the TLS handshake,
+including the agent certificate chain and the principal's
+certificate.<a href="#section-1.4-3.14.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.15">DelegationAuthorization:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.16">
+            <p id="section-1.4-3.16.1">Cryptographic evidence, carried within the AIC extension, that the
+principal has authorized the Agent. Contains a digital signature
+over a DelegationAuthTBS structure.<a href="#section-1.4-3.16.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.17">DelegationAuthTBS:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.18">
+            <p id="section-1.4-3.18.1">The To-Be-Signed structure whose DER encoding is signed by the
+principal's private key to produce the DelegationAuthorization.<a href="#section-1.4-3.18.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.19">PrincipalAuthorization:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.20">
+            <p id="section-1.4-3.20.1">A companion X.509 extension (OID 1.3.6.1.4.1.66257.1.2) carried in
+the Principal's certificate, declaring grants, authorization
+constraints, and delegation policies.<a href="#section-1.4-3.20.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.21">authorizationConstraints:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.22">
+            <p id="section-1.4-3.22.1">An OPTIONAL container within AIC and PrincipalAuthorization that
+defines authorization boundary conditions (IP ranges, concurrency
+limits, time windows). Constraints are evaluated offline during
+TLS handshake.<a href="#section-1.4-3.22.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.23">OID:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.24">
+            <p id="section-1.4-3.24.1">Object Identifier -- a globally unique sequence of integers used
+to identify objects in the X.509 standard.<a href="#section-1.4-3.24.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.25">PEN:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.26">
+            <p id="section-1.4-3.26.1">Private Enterprise Number -- a globally unique identifier assigned
+by IANA to organizations for private use in OID space.<a href="#section-1.4-3.26.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-1.4-3.27">SPKI:</dt>
+          <dd style="margin-left: 1.5em" id="section-1.4-3.28">
+            <p id="section-1.4-3.28.1">Subject Public Key Info -- the ASN.1 structure defined in <span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>
+Section 4.1.2.7 containing the public key algorithm and subject
+public key.<a href="#section-1.4-3.28.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="related-work">
+<section id="section-1.5">
+        <h3 id="name-related-work">
+<a href="#section-1.5" class="section-number selfRef">1.5. </a><a href="#name-related-work" class="section-name selfRef">Related Work</a>
+        </h3>
+<p id="section-1.5-1">Several proposals address agent identity and authorization, either in
+X.509 certificate extensions or in application-layer protocols.<a href="#section-1.5-1" class="pilcrow">¶</a></p>
+<p id="section-1.5-2"><span>[<a href="#AGTP" class="cite xref">AGTP</a>]</span> (draft-hood-agtp-agent-cert) defines an X.509 certificate
+extension that binds an agent identifier and a principal identifier
+and includes an authority-scope commitment over a set of scope
+tokens. The scope tokens are carried as a flat list of strings.<a href="#section-1.5-2" class="pilcrow">¶</a></p>
+<p id="section-1.5-3"><span>[<a href="#APKI" class="cite xref">APKI</a>]</span> (draft-sharif-apki-agent-pki) defines five separate X.509
+extensions for agent capabilities, delegation, trust scoring,
+provenance, and behavioral attestation. Each extension is encoded
+independently.<a href="#section-1.5-3" class="pilcrow">¶</a></p>
+<p id="section-1.5-4"><span>[<a href="#AgentIdentity" class="cite xref">AgentIdentity</a>]</span> (draft-sharif-x509-agent-identity-profile) defines a
+single X.509 extension combining a trust level, a list of capability
+names, a maximum delegation depth, and a kill-switch URI.<a href="#section-1.5-4" class="pilcrow">¶</a></p>
+<p id="section-1.5-5"><span>[<a href="#RFC3820" class="cite xref">RFC3820</a>]</span> defines proxy certificates for grid computing. A proxy
+certificate extends the certificate chain so that the proxy acts on
+behalf of the issuer; it does not carry agent-specific identity or
+authorization data.<a href="#section-1.5-5" class="pilcrow">¶</a></p>
+<p id="section-1.5-6"><span>[<a href="#RFC5755" class="cite xref">RFC5755</a>]</span> defines attribute certificates as a separate authorization
+mechanism bound to an identity certificate. Attribute certificates
+carry attribute/value pairs and are issued by an attribute authority.<a href="#section-1.5-6" class="pilcrow">¶</a></p>
+<p id="section-1.5-7"><span>[<a href="#CapabilityBound" class="cite xref">CapabilityBound</a>]</span> (arXiv:2603.14332) embeds a hash of a skills
+manifest in an X.509 extension. Any change to the manifest requires
+issuing a new certificate.<a href="#section-1.5-7" class="pilcrow">¶</a></p>
+<p id="section-1.5-8"><span>[<a href="#DAAP" class="cite xref">DAAP</a>]</span> (draft-mishra-oauth-agent-grants) extends OAuth 2.0 with agent
+grants, using DID-based identifiers and JSON Web Tokens carried at the
+application layer. It supports multi-level delegation and cascading
+revocation, and depends on DID resolution.<a href="#section-1.5-8" class="pilcrow">¶</a></p>
+<p id="section-1.5-9"><span>[<a href="#OpenA2A" class="cite xref">OpenA2A</a>]</span> (draft-singla-agent-identity-protocol) defines agent
+identifiers derived from public keys and a capability manifest carried
+in DID documents, and depends on DID resolution.<a href="#section-1.5-9" class="pilcrow">¶</a></p>
+<p id="section-1.5-10">WIMSE and SPIFFE define workload identities using SAN URIs
+(<span>[<a href="#SPIFFE" class="cite xref">SPIFFE</a>]</span>); they identify workloads and do not carry authorization
+information.<a href="#section-1.5-10" class="pilcrow">¶</a></p>
+<p id="section-1.5-11">This specification follows the X.509 extension approach used by
+AGTP, APKI, AgentIdentity, and CapabilityBound. It differs in three
+respects: (1) the authorization data is signed by the principal and
+the resulting signature is covered by the certificate authority's
+signature; (2) capabilities use a structured container with a scheme
+identifier and a capability identifier, so that evaluation can be
+routed to scheme-specific plugins; and (3) an authorization constraint
+container carries offline-verifiable boundary conditions. The design
+goal is to make the authorization decision fully verifiable offline
+from the certificate and its credential bundle.<a href="#section-1.5-11" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="delegation-model">
+<section id="section-2">
+      <h2 id="name-delegation-model">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-delegation-model" class="section-name selfRef">Delegation Model</a>
+      </h2>
+<div id="delegation-modes">
+<section id="section-2.1">
+        <h3 id="name-delegation-modes">
+<a href="#section-2.1" class="section-number selfRef">2.1. </a><a href="#name-delegation-modes" class="section-name selfRef">Delegation Modes</a>
+        </h3>
+<p id="section-2.1-1">Two delegation modes are defined:<a href="#section-2.1-1" class="pilcrow">¶</a></p>
+<p id="section-2.1-2"><strong>Authorized mode (default):</strong> The Agent acts under its own identity.
+The agent certificate's agentId is recorded as the actor in audit logs,
+while the principalUid identifies the authorizing principal. The CA
+evaluates the agent's declared capabilities against the principal's
+PrincipalAuthorization.grants at issuance time, and the resulting
+capability set is locked into the certificate. Gateway runtime does
+not perform a further P_grants superset check for authorized mode.
+Authorized mode therefore provides snapshot authorization semantics:
+principal grant changes after issuance do not affect the capability
+set of an already issued certificate.<a href="#section-2.1-2" class="pilcrow">¶</a></p>
+<p id="section-2.1-3"><strong>Representative mode:</strong> The Agent acts on behalf of the Principal
+within the delegated permission scope. The principalUid is recorded
+as the actor in audit logs, with the agentId recorded as the executor.
+Representative mode is the exception to the minimal credential
+bundle model: it requires the principal's certificate and its
+PrincipalAuthorization extension to be present in the credential
+bundle presented during the TLS handshake. Deployments that cannot
+provide the complete bundle MUST use authorized mode.
+The agent's declared capabilities MUST be a subset of the principal's
+grants at both issuance time (CA verification) and runtime (gateway
+verification), as the principal's permissions may change during the
+agent certificate's lifetime.<a href="#section-2.1-3" class="pilcrow">¶</a></p>
+<div id="security-envelope-model">
+<section id="section-2.1.1">
+          <h4 id="name-security-envelope-model">
+<a href="#section-2.1.1" class="section-number selfRef">2.1.1. </a><a href="#name-security-envelope-model" class="section-name selfRef">Security Envelope Model</a>
+          </h4>
+<p id="section-2.1.1-1">This specification uses a security-envelope heuristic: reducing
+either the delegated permission scope or the credential lifetime
+reduces the potential exposure of a compromised credential.<a href="#section-2.1.1-1" class="pilcrow">¶</a></p>
+<p id="section-2.1.1-2">Authorized mode selects <strong>narrow scope x longer validity</strong> -- the
+principal selects capabilities at issuance, the capability set is
+locked into the certificate, and the certificate lifetime is up to
+24 hours with automatic renewal.<a href="#section-2.1.1-2" class="pilcrow">¶</a></p>
+<p id="section-2.1.1-3">Representative mode selects <strong>broad scope x shorter validity</strong> -- the
+agent may exercise the full extent of the principal's permissions
+(P_grants), but the certificate is short-lived and subject to runtime
+per-operation P_grants intersection verification.<a href="#section-2.1.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="permission-intersection">
+<section id="section-2.2">
+        <h3 id="name-permission-intersection">
+<a href="#section-2.2" class="section-number selfRef">2.2. </a><a href="#name-permission-intersection" class="section-name selfRef">Permission Intersection</a>
+        </h3>
+<p id="section-2.2-1">The effective permission for any agent operation is governed by the
+intersection of three sets:<a href="#section-2.2-1" class="pilcrow">¶</a></p>
+<p id="section-2.2-2">The authorization model is the intersection of the principal's grants
+and the agent's capabilities:<a href="#section-2.2-2" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-2.2-3">
+<pre>
+P_effective = P_grants (AND) C_agent
+</pre><a href="#section-2.2-3" class="pilcrow">¶</a>
+</div>
+<p id="section-2.2-4">where P_grants is the principal's declared capability grants (in
+PrincipalAuthorization.grants) and C_agent is the agent's declared
+capability set (in AIC.capabilities). An operation is authorized only
+if it belongs to both sets.<a href="#section-2.2-4" class="pilcrow">¶</a></p>
+<p id="section-2.2-5">In authorized mode, C_agent alone serves as the effective capability
+set (P_grants intersection was already verified by the CA at issuance
+time and locked into the certificate). In representative mode, the
+intersection is computed at runtime for each operation.<a href="#section-2.2-5" class="pilcrow">¶</a></p>
+<p id="section-2.2-6">Gateway-local runtime policy (T_policy) -- rate limits, timeouts,
+routing, and other deployment-side controls -- is an additional
+enforcement layer applied by the relying party. It is NOT part of the
+authorization model defined by this specification and MUST NOT be
+confused with the P (AND) C authorization intersection.<a href="#section-2.2-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="multi-level-delegation">
+<section id="section-2.3">
+        <h3 id="name-multi-level-delegation">
+<a href="#section-2.3" class="section-number selfRef">2.3. </a><a href="#name-multi-level-delegation" class="section-name selfRef">Multi-Level Delegation</a>
+        </h3>
+<p id="section-2.3-1">Single-level delegation (Principal -&gt; Agent, chainDepth = 0) is the
+default and recommended deployment mode. A delegation chain of depth 1
+(Principal -&gt; Agent -&gt; sub-Agent, chainDepth = 1) MAY be supported
+when a deployment requires it, in which case the delegating agent
+signs a DelegationAuthorization for the sub-agent:<a href="#section-2.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-2.3-2.1">
+            <p id="section-2.3-2.1.1"><strong>chainDepth = 0 (default)</strong>: direct delegation from the principal
+to the agent (Principal -&gt; Agent).<a href="#section-2.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-2.3-2.2">
+            <p id="section-2.3-2.2.1"><strong>chainDepth = 1 (optional)</strong>: one additional level (Principal -&gt;
+Agent -&gt;
+sub-Agent), in which the delegating agent signs a
+DelegationAuthorization for the sub-agent.<a href="#section-2.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-2.3-3">Each level of the chain produces an independent
+DelegationAuthorization signed by the delegator's private key, and
+capabilities are recursively intersected along the chain. Chain depth
+is carried in a DelegationDepthControl extension with chainDepth and
+maxDepth fields. In any chain, chainDepth MUST NOT exceed maxDepth.<a href="#section-2.3-3" class="pilcrow">¶</a></p>
+<p id="section-2.3-4">Chains deeper than 1 are not recommended. As a best practice,
+deployments SHOULD NOT permit chainDepth &gt; 1: each additional level
+increases attribution ambiguity (the legal status of intermediate
+agents and the audit actor semantics), expands the attack surface, and
+grows the credential bundle. The accountability model of this
+specification is anchored to the natural person at the top of the
+chain and is best preserved by limiting delegation to the depths
+described above.<a href="#section-2.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="certificate-profile-data-model">
+<section id="section-3">
+      <h2 id="name-certificate-profile-data-mo">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-certificate-profile-data-mo" class="section-name selfRef">Certificate Profile (Data Model)</a>
+      </h2>
+<p id="section-3-1">A certificate carrying the AIC extension encodes the following abstract
+data model:<a href="#section-3-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-2">
+        <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
+<thead>
+          <tr>
+            <th class="text-left" rowspan="1" colspan="1">Component</th>
+            <th class="text-left" rowspan="1" colspan="1">Description</th>
+            <th class="text-left" rowspan="1" colspan="1">Cardinality</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Agent Identity</td>
+            <td class="text-left" rowspan="1" colspan="1">Identifier of the agent</td>
+            <td class="text-left" rowspan="1" colspan="1">Mandatory</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Principal Binding</td>
+            <td class="text-left" rowspan="1" colspan="1">Link to the accountable principal</td>
+            <td class="text-left" rowspan="1" colspan="1">Mandatory</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Delegation Mode</td>
+            <td class="text-left" rowspan="1" colspan="1">Authorized or representative</td>
+            <td class="text-left" rowspan="1" colspan="1">Mandatory</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Capability Set</td>
+            <td class="text-left" rowspan="1" colspan="1">Declared operational capabilities</td>
+            <td class="text-left" rowspan="1" colspan="1">Optional</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Authorization Constraints</td>
+            <td class="text-left" rowspan="1" colspan="1">Offline-verifiable boundary conditions</td>
+            <td class="text-left" rowspan="1" colspan="1">Optional</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Delegation Authorization</td>
+            <td class="text-left" rowspan="1" colspan="1">Cryptographic evidence of principal consent</td>
+            <td class="text-left" rowspan="1" colspan="1">Mandatory</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Extensions</td>
+            <td class="text-left" rowspan="1" colspan="1">Vendor-specific or future extensions</td>
+            <td class="text-left" rowspan="1" colspan="1">Optional</td>
+          </tr>
+        </tbody>
+      </table>
+<p id="section-3-3">This data model is encoded as a set of X.509v3 certificate extensions,
+defined in the following section.<a href="#section-3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="aic-extension-definition">
+<section id="section-4">
+      <h2 id="name-aic-extension-definition">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-aic-extension-definition" class="section-name selfRef">AIC Extension Definition</a>
+      </h2>
+<div id="oid-tree">
+<section id="section-4.1">
+        <h3 id="name-oid-tree">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-oid-tree" class="section-name selfRef">OID Tree</a>
+        </h3>
+<div class="alignLeft art-text artwork" id="section-4.1-1">
+<pre>
+1.3.6.1.4.1.66257 (IANA PEN -- Varwof PKI)
++-- 1 Identity &amp; Authorization Core
+|   +-- 1 AIC (Agent Identity Certificate Extension)
+|   |   +-- 1 AgentIdentity (agentId, principalUid, delegationMode)
+|   |   +-- 2 DelegationAuthorization (reason, requestedLifetime,
+|   |   |     timestamp, nonce, signatureAlgorithm, signatureValue)
+|   |   +-- 4 DelegationDepthControl (chainDepth, maxDepth)
+|   |   |   +-- 1 chainDepth
+|   |   |   +-- 2 maxDepth
+|   +-- 2 PrincipalAuthorization (grants, authorizationConstraints,
+|   |     delegationPolicy)
+|   |   +-- 4 DelegationPolicy
++-- 3 National/Industry Certification
+|   +-- 1 MarketAccessId
+</pre><a href="#section-4.1-1" class="pilcrow">¶</a>
+</div>
+</section>
+</div>
+<div id="capability-glob-matching-syntax">
+<section id="section-4.2">
+        <h3 id="name-capability-glob-matching-sy">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-capability-glob-matching-sy" class="section-name selfRef">Capability Glob Matching Syntax</a>
+        </h3>
+<p id="section-4.2-1">Capability matching uses the following matching rules:<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-3">
+          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Pattern</th>
+              <th class="text-left" rowspan="1" colspan="1">Meaning</th>
+              <th class="text-left" rowspan="1" colspan="1">Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>scheme:method:path</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">Exact match</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/v1/users</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>scheme:method:path/*</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">Single-segment wildcard (no "/")</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/v1/*</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>scheme:method:path/**</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">Multi-segment wildcard (crosses "/")</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/v1/**</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>scheme:*:path</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">Method wildcard</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:*:/api/v1/*</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>scheme:*</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">Scheme-wide wildcard</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:*</code>
+</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-4.2-3">Matching priority (highest to lowest):
+1. Exact match
+2. Single-segment wildcard
+3. Multi-segment wildcard
+4. Method wildcard
+5. Scheme-wide wildcard<a href="#section-4.2-3" class="pilcrow">¶</a></p>
+<p id="section-4.2-4">When multiple rules match, the highest priority rule applies.
+If no rule matches, the capability MUST be treated as Deny.<a href="#section-4.2-4" class="pilcrow">¶</a></p>
+<p id="section-4.2-5">Unqualified wildcards (bare <code>*</code> without a preceding namespace and colon
+separator) are NOT permitted. All wildcards MUST be scoped within a
+schemeId namespace.<a href="#section-4.2-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="asn1-module">
+<section id="section-4.3">
+        <h3 id="name-asn1-module">
+<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-asn1-module" class="section-name selfRef">ASN.1 Module</a>
+        </h3>
+<p id="section-4.3-1">This section defines the ASN.1 module for the AIC extension, using
+the conventions specified in <span>[<a href="#RFC5912" class="cite xref">RFC5912</a>]</span>.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+<p id="section-4.3-2">Encoding tag conventions:<a href="#section-4.3-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.3-3.1">
+            <p id="section-4.3-3.1.1">Mandatory fields use universal tags (INTEGER, UTF8String, OCTET
+STRING, SEQUENCE); no context-specific tags are applied.<a href="#section-4.3-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.3-3.2">
+            <p id="section-4.3-3.2.1">All OPTIONAL fields use context-specific explicit tags
+(<code>[n] EXPLICIT</code>), numbered from 0 in field order within each
+structure. Tag numbers are unique within a structure and MAY be
+reused across structures.<a href="#section-4.3-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.3-3.3">
+            <p id="section-4.3-3.3.1">Standard external types (AlgorithmIdentifier) follow RFC 5280
+encoding conventions.<a href="#section-4.3-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.3-3.4">
+            <p id="section-4.3-3.4.1">DEFAULT fields MAY be omitted from DER encodings when equal to the
+default value; implementations MUST accept both forms.<a href="#section-4.3-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-4.3-4">The AIC and PrincipalAuthorization extensions MUST be non-critical so
+that systems unaware of these extensions can safely ignore them.<a href="#section-4.3-4" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.3-5">
+<pre>
+VARWOF-AIC DEFINITIONS
+    { iso(1) identified-organization(3) dod(6) internet(1)
+      private(4) enterprise(1) varwof(66257) modules(2)
+      id-mod-varwof-aic(1) }
+DEFINITIONS ::= BEGIN
+
+-- All SEQUENCEs SHALL use DER encoding (ordered, no indefinite-length).
+-- See RFC 5912 Sec. 3 for DER encoding rules.
+-- Implementations MUST reject BER indefinite-length encodings.
+
+IMPORTS
+    EXTENSION
+        FROM PKIX-CommonTypes-2009
+        { iso(1) identified-organization(3) dod(6) internet(1)
+          security(5) mechanisms(5) pkix(7) id-mod(0)
+          id-mod-pkixCommonTypes-02(57) },
+    AlgorithmIdentifier
+        FROM PKIXAlgs-2009
+        { iso(1) identified-organization(3) dod(6) internet(1)
+          security(5) mechanisms(5) pkix(7) id-mod(0)
+          id-mod-pkix1-algorithms2008-02(56) } ;
+
+-- OID Assignments
+
+id-varwof        OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 66257 }
+id-aic           OBJECT IDENTIFIER ::= { id-varwof 1 1 }
+
+-- AIC Extension
+
+aicExt EXTENSION ::= {
+    SYNTAX         AIC
+    IDENTIFIED BY  id-aic
+    CRITICAL       FALSE
+}
+
+AIC ::= SEQUENCE {
+    version                  INTEGER DEFAULT 1,
+    agentId                  UTF8String (SIZE(1..256)),
+    principalUid             PrincipalUid,
+    capabilities             SEQUENCE SIZE(1..MAX) OF Capability,
+    delegationMode           DelegationMode DEFAULT authorized,
+    authorizationConstraints [0] EXPLICIT SEQUENCE
+        SIZE(0..32) OF Capability OPTIONAL,
+    delegationAuthorization  DelegationAuthorization,
+    extensions               [1] EXPLICIT AICExtensions OPTIONAL
+}
+
+DelegationMode ::= INTEGER {
+    authorized     (0),
+    representative (1)
+} (0..1)
+
+PrincipalUid ::= SEQUENCE {
+    version     INTEGER (0..255) DEFAULT 1,
+    realm       UTF8String (SIZE(1..128)),
+    identifier  UTF8String (SIZE(1..256)),
+    keyHash     OCTET STRING (SIZE(1..64)),
+    hashAlgo    [0] EXPLICIT AlgorithmIdentifier OPTIONAL
+}
+-- hashAlgo omitted defaults to SHA-256 (OID 2.16.840.1.101.3.4.2.1);
+-- keyHash = hashAlgo(SPKI). Only hash algorithms with output length
+-- not exceeding 64 bytes are supported (SHA-2/SHA-3 family, SM3,
+-- BLAKE2/BLAKE3). keyHash length is determined by the algorithm.
+
+Capability ::= SEQUENCE {
+    schemeId        UTF8String (SIZE(1..128)),
+    capabilityId    UTF8String (SIZE(1..256)),
+    parameters      [0] EXPLICIT OCTET STRING (SIZE(0..4096)) OPTIONAL
+}
+
+-- Reason for delegation authorization (mandatory in
+-- DelegationAuthorization / DelegationAuthTBS; not present in
+-- PrincipalAuthorization)
+
+Reason ::= SEQUENCE {
+    reasonCode  UTF8String (SIZE(1..64)),
+        -- controlled vocabulary, e.g., SCHEDULED_MAINTENANCE
+    description UTF8String (SIZE(1..512))
+        -- human-readable description
+}
+
+DelegationAuthorization ::= SEQUENCE {
+    reason              Reason,
+    requestedLifetime   INTEGER (1..86400),  -- SHOULD 3600-86400
+    timestamp           GeneralizedTime,     -- MUST be UTC (Z form)
+    nonce               OCTET STRING (SIZE(32)),
+    signatureAlgorithm  AlgorithmIdentifier,
+    signatureValue      OCTET STRING
+}
+
+-- DelegationAuthTBS (To-Be-Signed structure)
+-- The principal's private key signs the DER encoding of this structure.
+
+DelegationAuthTBS ::= SEQUENCE {
+    version                  INTEGER DEFAULT 1,
+    agentId                  UTF8String (SIZE(1..256)),
+    principalUid             PrincipalUid,
+    reason                   Reason,
+    capabilities             SEQUENCE SIZE(1..MAX) OF Capability,
+    delegationMode           DelegationMode,
+    authorizationConstraints [0] EXPLICIT SEQUENCE
+        SIZE(0..32) OF Capability OPTIONAL,
+    requestedLifetime        INTEGER (1..86400),  -- SHOULD 3600-86400
+    timestamp                GeneralizedTime,     -- MUST be UTC (Z)
+    nonce                    OCTET STRING (SIZE(32))
+}
+
+-- PrincipalAuthorization Extension (OID: 1.3.6.1.4.1.66257.1.2)
+-- Carried in the Principal's certificate.
+
+paExt EXTENSION ::= {
+    SYNTAX         PrincipalAuthorization
+    IDENTIFIED BY  id-principal-auth
+    CRITICAL       FALSE
+}
+id-principal-auth OBJECT IDENTIFIER ::= { id-varwof 1 2 }
+
+PrincipalAuthorization ::= SEQUENCE {
+    version                  INTEGER DEFAULT 1,
+    grants                   SEQUENCE SIZE(1..MAX) OF Capability,
+    authorizationConstraints [0] EXPLICIT SEQUENCE
+        SIZE(0..32) OF Capability OPTIONAL,
+    delegationPolicy         [1] EXPLICIT DelegationPolicy OPTIONAL,
+    extensions               [2] EXPLICIT AICExtensions OPTIONAL
+}
+
+DelegationPolicy ::= SEQUENCE {
+    version             INTEGER DEFAULT 1,
+    maxAgents           INTEGER DEFAULT 1,
+    allowedMode         DelegationModeEnum DEFAULT authorizedOnly,
+    maxSessionHours     [0] EXPLICIT INTEGER OPTIONAL
+}
+
+DelegationModeEnum ::= INTEGER {
+    authorizedOnly        (0),
+    representativeAllowed (1)
+} (0..1)
+
+-- Extensibility Framework
+
+AICExtensions ::= SEQUENCE SIZE (1..MAX) OF ExtField
+
+ExtField ::= SEQUENCE {
+    extnID      OBJECT IDENTIFIER,
+    critical    BOOLEAN DEFAULT FALSE,
+    extnValue   OCTET STRING
+}
+
+-- DelegationDepthControl carries the delegation chain depth.
+-- Placed in AIC extensions slot, OID 1.3.6.1.4.1.66257.1.1.4.
+-- maxDepth MUST NOT exceed 1; chainDepth MUST NOT exceed maxDepth.
+-- A sub-agent (chainDepth = 1) MUST NOT delegate further.
+
+id-ddc OBJECT IDENTIFIER ::= { id-aic 4 }
+DelegationDepthControl ::= SEQUENCE {
+    chainDepth  INTEGER (0..255),  -- OID .1.1.4.1
+    maxDepth    INTEGER (0..255)   -- OID .1.1.4.2
+}
+
+END
+</pre><a href="#section-4.3-5" class="pilcrow">¶</a>
+</div>
+</section>
+</div>
+<div id="example-aic-extension-encoding">
+<section id="section-4.4">
+        <h3 id="name-example-aic-extension-encod">
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-example-aic-extension-encod" class="section-name selfRef">Example AIC Extension Encoding</a>
+        </h3>
+<p id="section-4.4-1">The following example illustrates the AIC extension for an agent with
+agentId "agent-1", a principal identified as "zhangsan" in the
+"corp.com" realm, and a single HTTP capability:<a href="#section-4.4-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.4-2">
+<pre>
+AIC ::= {
+    agentId         "agent-1",
+    principalUid    {
+        realm       "corp.com",
+        identifier  "zhangsan",
+        keyHash     &lt;32-byte hash of the principal's SPKI&gt;
+    },
+    capabilities    {
+        { schemeId "http", capabilityId "GET:/api/v1/users" }
+    },
+    delegationAuthorization {
+        reason      {
+            reasonCode  "SCHEDULED_MAINTENANCE",
+            description "temporary maintenance window"
+        },
+        requestedLifetime 3600,
+        timestamp   "2026-08-18T00:00:00Z",
+        nonce       &lt;32-byte CSPRNG value&gt;,
+        signatureAlgorithm ecdsa-with-SHA256,
+        signatureValue &lt;DER-encoded signature over DelegationAuthTBS&gt;
+    }
+}
+</pre><a href="#section-4.4-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.4-3">In the DER encoding of this example, the DEFAULT fields (version,
+delegationMode) are omitted as permitted by the ASN.1 module, and the
+OPTIONAL fields (authorizationConstraints, extensions) are absent.
+Each field is encoded in the order given in the ASN.1 module using DER
+rules <span><a href="#RFC5912" class="internal xref">RFC5280</a> [<a href="#RFC5912" class="cite xref">RFC5912</a>]</span>. The signatureValue is produced by the
+principal's private key over the DER encoding of the corresponding
+DelegationAuthTBS structure and varies per authorization.<a href="#section-4.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="field-definitions">
+<section id="section-4.5">
+        <h3 id="name-field-definitions">
+<a href="#section-4.5" class="section-number selfRef">4.5. </a><a href="#name-field-definitions" class="section-name selfRef">Field Definitions</a>
+        </h3>
+<div id="agentid">
+<section id="section-4.5.1">
+          <h4 id="name-agentid">
+<a href="#section-4.5.1" class="section-number selfRef">4.5.1. </a><a href="#name-agentid" class="section-name selfRef">agentId</a>
+          </h4>
+<p id="section-4.5.1-1">The <code>agentId</code> field contains a globally unique identifier for the AI
+Agent instance. The identifier SHOULD be stable across certificate
+renewals for the same agent instance. Implementations MAY use UUIDs,
+URN-based identifiers, or DNS-anchored names.<a href="#section-4.5.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="delegationmode">
+<section id="section-4.5.2">
+          <h4 id="name-delegationmode">
+<a href="#section-4.5.2" class="section-number selfRef">4.5.2. </a><a href="#name-delegationmode" class="section-name selfRef">delegationMode</a>
+          </h4>
+<p id="section-4.5.2-1">The <code>delegationMode</code> field defines the protocol-defined relationship
+between the Agent and its Principal for attribution and authorization
+purposes:<a href="#section-4.5.2-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-4.5.2-2">
+            <dt id="section-4.5.2-2.1">authorized (0):</dt>
+            <dd style="margin-left: 1.5em" id="section-4.5.2-2.2">
+              <p id="section-4.5.2-2.2.1">The Agent acts under its own cryptographic identity with explicit
+principal authorization. The audit trail records the agentId as the
+actor. This is the default mode.<a href="#section-4.5.2-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+            <dd class="break"></dd>
+<dt id="section-4.5.2-2.3">representative (1):</dt>
+            <dd style="margin-left: 1.5em" id="section-4.5.2-2.4">
+              <p id="section-4.5.2-2.4.1">The Agent fully represents the Principal. Actions are attributed to
+the Principal (principalUid) in the audit trail. This mode MUST
+only be permitted when the Principal's certificate explicitly allows
+representative delegation (allowedMode=representativeAllowed in
+PrincipalAuthorization.delegationPolicy).<a href="#section-4.5.2-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="principaluid">
+<section id="section-4.5.3">
+          <h4 id="name-principaluid">
+<a href="#section-4.5.3" class="section-number selfRef">4.5.3. </a><a href="#name-principaluid" class="section-name selfRef">principalUid</a>
+          </h4>
+<p id="section-4.5.3-1">The <code>principalUid</code> field identifies the natural person or
+organizational entity that authorizes the Agent's actions. It is
+encoded as an ASN.1 SEQUENCE:<a href="#section-4.5.3-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.5.3-2">
+<pre>
+PrincipalUid ::= SEQUENCE {
+    version     INTEGER (0..255) DEFAULT 1,
+    realm       UTF8String (SIZE(1..128)),
+    identifier  UTF8String (SIZE(1..256)),
+    keyHash     OCTET STRING (SIZE(1..64)),
+    hashAlgo    [0] EXPLICIT AlgorithmIdentifier OPTIONAL
+}
+</pre><a href="#section-4.5.3-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.5.3-3">Where:<a href="#section-4.5.3-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.3-4.1">
+              <p id="section-4.5.3-4.1.1"><code>realm</code> is a globally unique namespace (e.g., an organization domain),
+limited to 128 characters;<a href="#section-4.5.3-4.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.3-4.2">
+              <p id="section-4.5.3-4.2.1"><code>identifier</code> is a unique identifier within the realm, limited to 256
+characters;<a href="#section-4.5.3-4.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.3-4.3">
+              <p id="section-4.5.3-4.3.1"><code>keyHash</code> is the hash of the SubjectPublicKeyInfo (SPKI) of the
+principal's certificate computed with <code>hashAlgo</code>: <code>keyHash =
+hashAlgo(SPKI)</code>. The length is determined by the hash algorithm and
+MUST NOT exceed 64 bytes (SHA-256 = 32 bytes, SHA-384 = 48 bytes,
+SHA-512/SHA3-512 = 64 bytes, SM3 = 32 bytes). Using the SPKI hash
+rather than a certificate fingerprint allows principal certificate
+renewal without invalidating existing agent authorizations, provided
+the same key pair is used.<a href="#section-4.5.3-4.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.3-4.4">
+              <p id="section-4.5.3-4.4.1"><code>hashAlgo</code> identifies the hash algorithm used for <code>keyHash</code>; when
+omitted, SHA-256 (OID 2.16.840.1.101.3.4.2.1) is assumed. Only hash
+algorithms with output length not exceeding 64 bytes are supported.<a href="#section-4.5.3-4.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.5.3-5">The human-readable form <code>{realm}:{identifier}:{keyFingerprint}</code>
+(where keyFingerprint is the base64url encoding of keyHash per
+<span>[<a href="#RFC4648" class="cite xref">RFC4648</a>]</span> Section 5, without padding) is RECOMMENDED for display
+and logging purposes only. Machine-level comparison MUST use ASN.1
+structural comparison, not string parsing.<a href="#section-4.5.3-5" class="pilcrow">¶</a></p>
+<p id="section-4.5.3-6">keyHash MAY be used as a management index (e.g., for cascading
+revocation, audit, or certificate lookup by principal). Such lookups
+are for management association only; authorization binding and
+revocation decisions remain based on keyHash and certificate chain
+validation.<a href="#section-4.5.3-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="capabilities">
+<section id="section-4.5.4">
+          <h4 id="name-capabilities">
+<a href="#section-4.5.4" class="section-number selfRef">4.5.4. </a><a href="#name-capabilities" class="section-name selfRef">capabilities</a>
+          </h4>
+<p id="section-4.5.4-1">The <code>capabilities</code> field is a pure container -- this specification
+defines only the encoding of capabilities, not their semantics.
+Capability semantics are entirely defined by the capability scheme
+identified by <code>schemeId</code>. AIC implementations MUST NOT assign semantics
+to unknown schemes. Each capability entry is identified by a <code>schemeId</code>
+that indicates the governing scheme, a <code>capabilityId</code> within that
+scheme, and OPTIONAL parameters.<a href="#section-4.5.4-1" class="pilcrow">¶</a></p>
+<p id="section-4.5.4-2">The <code>capabilityId</code> field supports wildcard characters for glob-based
+matching: <code>*</code> matches a single path segment (no colon), <code>**</code> matches
+across path segments (any depth).<a href="#section-4.5.4-2" class="pilcrow">¶</a></p>
+<p id="section-4.5.4-3">Gateways route capability evaluation by looking up registered plugins
+by <code>schemeId</code>. When the capability required by the current request
+references an unknown scheme or an unknown capability, the request
+MUST be treated as Deny (fail-closed). Capabilities carried in the
+certificate that are not relevant to the current request do not affect
+the decision.<a href="#section-4.5.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authorizationconstraints">
+<section id="section-4.5.5">
+          <h4 id="name-authorizationconstraints">
+<a href="#section-4.5.5" class="section-number selfRef">4.5.5. </a><a href="#name-authorizationconstraints" class="section-name selfRef">authorizationConstraints</a>
+          </h4>
+<p id="section-4.5.5-1">The <code>authorizationConstraints</code> field (OPTIONAL) defines
+authorization boundary conditions for the Agent. Each constraint
+reuses the Capability container. The <code>schemeId</code> MUST be one of
+<code>"varwof/constraint-v1"</code>; any other <code>schemeId</code> MUST be rejected.
+<code>capabilityId</code> distinguishes the constraint type. The following
+constraint types are defined as examples; additional constraint types
+are registered through the capability scheme registry (Section IANA
+Considerations) and do not require a change to the ASN.1 module:<a href="#section-4.5.5-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-4">
+            <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
+<thead>
+              <tr>
+                <th class="text-left" rowspan="1" colspan="1">capabilityId</th>
+                <th class="text-left" rowspan="1" colspan="1">parameters Format</th>
+                <th class="text-left" rowspan="1" colspan="1">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>allowed-cidr</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>["10.0.0.0/8", "192.168.0.0/16"]</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">Allowed IP ranges</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>max-concurrent</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>{"max": 5}</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">Maximum concurrent Agent instances</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>time-window</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>{"start": "22:00", "end": "06:00"}</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">Allowed execution time window (UTC)</td>
+              </tr>
+            </tbody>
+          </table>
+<p id="section-4.5.5-3">Constraint semantics MUST define the reference clock, time scale,
+timezone interpretation, boundary conditions, and behavior under clock
+uncertainty (e.g., for time-window).<a href="#section-4.5.5-3" class="pilcrow">¶</a></p>
+<p id="section-4.5.5-4">Constraints are evaluated with AND logic: all constraints MUST be
+satisfied for the connection to be accepted. The maximum number of
+constraints is 32, with a single constraint's parameters field limited
+to 512 bytes. Unknown constraint types are logged as audit warnings
+and ignored by default (forward-compatible); strict rejection behavior
+may be configured by the deployment.<a href="#section-4.5.5-4" class="pilcrow">¶</a></p>
+<p id="section-4.5.5-5">Design principle: authorizationConstraints carry boundary conditions
+determined by the authorizing party, varying per-principal, and changing
+infrequently. Runtime policies (timeouts, retries, rate limits, routing)
+are NOT carried in authorizationConstraints and remain in gateway-local
+policy configuration.<a href="#section-4.5.5-5" class="pilcrow">¶</a></p>
+<p id="section-4.5.5-6">The boundary between authorizationConstraints and gateway runtime
+policy is fixed:<a href="#section-4.5.5-6" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.5-7.1">
+              <p id="section-4.5.5-7.1.1">authorizationConstraints carry authorization boundary conditions
+set by the authorizing party (IP ranges, concurrency limits, time
+windows) that are verifiable offline.<a href="#section-4.5.5-7.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.5-7.2">
+              <p id="section-4.5.5-7.2.1">Gateway runtime policy (timeouts, retries, rate limits, routing,
+logging levels) is deployment-specific and MUST NOT be carried in
+authorizationConstraints.<a href="#section-4.5.5-7.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.5.5-8">Constraint types registered with the same capabilityId and parameters
+MUST be interpreted consistently by gateways that implement them.
+Gateways that do not implement a constraint type treat it as unknown
+and follow the unknown-constraint handling described above.<a href="#section-4.5.5-8" class="pilcrow">¶</a></p>
+<p id="section-4.5.5-9">The constraints within AIC.authorizationConstraints are independent of
+constraints within PrincipalAuthorization.authorizationConstraints --
+PA constraints limit the authorization behavior, AIC constraints limit
+the execution behavior. Both are checked independently during
+validation.<a href="#section-4.5.5-9" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="delegationauthorization">
+<section id="section-4.5.6">
+          <h4 id="name-delegationauthorization">
+<a href="#section-4.5.6" class="section-number selfRef">4.5.6. </a><a href="#name-delegationauthorization" class="section-name selfRef">delegationAuthorization</a>
+          </h4>
+<p id="section-4.5.6-1">The <code>delegationAuthorization</code> field provides cryptographic evidence
+that the principal has authorized this Agent. It contains:<a href="#section-4.5.6-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.5.6-2">
+<pre>
+DelegationAuthorization ::= SEQUENCE {
+    reason              Reason,
+    requestedLifetime   INTEGER (1..86400),
+    timestamp           GeneralizedTime,
+    nonce               OCTET STRING (SIZE(32)),
+    signatureAlgorithm  AlgorithmIdentifier,
+    signatureValue      OCTET STRING
+}
+</pre><a href="#section-4.5.6-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.5.6-3">The signature algorithm and signature value are kept as two flat
+fields -- <code>signatureAlgorithm</code> preceding <code>signatureValue</code> -- following
+the X.509 certificate convention (RFC 5280 Section 4.1), where
+<code>signatureAlgorithm</code> precedes <code>signatureValue</code> in the Certificate
+structure, enabling parsers to determine the algorithm before reading
+the signature bytes. They MUST NOT be merged into a nested SEQUENCE.<a href="#section-4.5.6-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.6-4.1">
+              <p id="section-4.5.6-4.1.1"><code>reason</code> (mandatory): The reason for this delegation, carried
+both here and in DelegationAuthTBS (where it is covered by the
+principal's signature). <code>reasonCode</code> is a controlled vocabulary value
+in SCREAMING_SNAKE style (e.g., <code>SCHEDULED_MAINTENANCE</code>,
+<code>AUTO_RENEWAL</code>); <code>description</code> is a human-readable explanation. Both
+fields MUST be present and non-empty. <code>reason</code> does not appear in
+PrincipalAuthorization.<a href="#section-4.5.6-4.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.6-4.2">
+              <p id="section-4.5.6-4.2.1"><code>requestedLifetime</code>: The principal-requested certificate lifetime in
+seconds. The wire value MUST be in the range 1-86400 (SHOULD
+3600-86400). The CA determines the actual NotAfter as
+min(requestedLifetime, local policy maximum).<a href="#section-4.5.6-4.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.6-4.3">
+              <p id="section-4.5.6-4.3.1"><code>timestamp</code>: The time at which the authorization was granted. MUST be
+UTC encoded as GeneralizedTime in Z form.<a href="#section-4.5.6-4.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.6-4.4">
+              <p id="section-4.5.6-4.4.1"><code>nonce</code>: 32-byte CSPRNG-generated random value for replay protection.
+The CA verifies nonce uniqueness at issuance time and persists it
+to prevent reuse.<a href="#section-4.5.6-4.4.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.6-4.5">
+              <p id="section-4.5.6-4.5.1"><code>signatureAlgorithm</code>: The algorithm identifier for the principal's
+signature (e.g., ecdsa-with-SHA256).<a href="#section-4.5.6-4.5.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.6-4.6">
+              <p id="section-4.5.6-4.6.1"><code>signatureValue</code>: The DER-encoded signature value produced by the
+principal's private key over the DER encoding of DelegationAuthTBS.<a href="#section-4.5.6-4.6.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.5.6-5">The principal's private key signs the DER encoding of the following
+DelegationAuthTBS structure:<a href="#section-4.5.6-5" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.5.6-6">
+<pre>
+DelegationAuthTBS ::= SEQUENCE {
+    version                  INTEGER DEFAULT 1,
+    agentId                  UTF8String (SIZE(1..256)),
+    principalUid             PrincipalUid,
+    reason                   Reason,
+    capabilities             SEQUENCE SIZE(1..MAX) OF Capability,
+    delegationMode           DelegationMode,
+    authorizationConstraints [0] EXPLICIT SEQUENCE
+        SIZE(0..32) OF Capability OPTIONAL,
+    requestedLifetime        INTEGER (1..86400),
+    timestamp                GeneralizedTime,
+    nonce                    OCTET STRING (SIZE(32))
+}
+</pre><a href="#section-4.5.6-6" class="pilcrow">¶</a>
+</div>
+<p id="section-4.5.6-7">All ten fields MUST be present in the DER encoding of
+DelegationAuthTBS. The <code>authorizationConstraints</code> field uses
+context-specific tag [0] EXPLICIT encoding; its OPTIONAL nature does
+not break backward compatibility with certificates that do not carry
+constraints.<a href="#section-4.5.6-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="extensions-and-extensibility">
+<section id="section-4.5.7">
+          <h4 id="name-extensions-and-extensibilit">
+<a href="#section-4.5.7" class="section-number selfRef">4.5.7. </a><a href="#name-extensions-and-extensibilit" class="section-name selfRef">Extensions and Extensibility</a>
+          </h4>
+<p id="section-4.5.7-1">The <code>extensions</code> field in AIC provides an extensibility mechanism for
+vendor-specific and user-specific metadata, analogous to X.509 v3
+extensions but scoped to the AIC context. Each extension entry is
+identified by a globally unique OID.<a href="#section-4.5.7-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.7-2.1">
+              <p id="section-4.5.7-2.1.1">Vendor-specific extensions SHOULD use OIDs under the vendor's own
+IANA Private Enterprise Number.<a href="#section-4.5.7-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.7-2.2">
+              <p id="section-4.5.7-2.2.1">Unknown extensions with <code>critical = TRUE</code> MUST cause certificate
+rejection.<a href="#section-4.5.7-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.7-2.3">
+              <p id="section-4.5.7-2.3.1">Unknown extensions with <code>critical = FALSE</code> (default) MAY be silently
+ignored.<a href="#section-4.5.7-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+</section>
+</div>
+<div id="certificate-size-constraints">
+<section id="section-4.5.8">
+          <h4 id="name-certificate-size-constraint">
+<a href="#section-4.5.8" class="section-number selfRef">4.5.8. </a><a href="#name-certificate-size-constraint" class="section-name selfRef">Certificate Size Constraints</a>
+          </h4>
+<p id="section-4.5.8-1">Certificates MUST observe the following size limits:<a href="#section-4.5.8-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.8-2.1">
+              <p id="section-4.5.8-2.1.1">Full-protocol safety limit: 12 KB recommended, 16 KB hard limit.
+This is the DER-encoded certificate size compatible with TCP/HTTP/
+DTLS/QUIC gateways. 16 KB corresponds to the QUIC
+<code>CRYPTO_BUFFER_EXCEEDED</code> limit of the QUIC stacks used by the
+reference implementation; exceeding it fails the handshake.<a href="#section-4.5.8-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.8-2.2">
+              <p id="section-4.5.8-2.2.1">Handshake certificate (AIC lightweight): 8 KB recommended, 16 KB
+hard limit. Used for mTLS/DTLS/QUIC handshake. In dual-certificate
+deployments it contains agentId + principalUid + delegationMode<a href="#section-4.5.8-2.2.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.8-2.2.2.1">
+                  <p id="section-4.5.8-2.2.2.1.1">DelegationAuthorization, plus at least one capability entry (the
+AIC capability set MUST NOT be empty; see Section 4.5.4). The
+dual-certificate deployment model is an optional deployment profile
+and does not define a new TLS certificate type.<a href="#section-4.5.8-2.2.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              </ul>
+</li>
+            <li class="normal" id="section-4.5.8-2.3">
+              <p id="section-4.5.8-2.3.1">Full authorization certificate: 64 KB recommended, 128 KB hard
+limit. Carries all capabilities, authorizationConstraints, and
+extensions; transmitted at the application layer after the handshake.
+Certificates exceeding 128 KB MUST be rejected.
+Unlike QUIC, TCP/TLS transports do not impose the 16 KB handshake
+limit: certificate messages are segmented by the TLS record layer,
+so larger certificates can be carried in practice up to the hard
+limit.<a href="#section-4.5.8-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.5.8-3">The number of entries in the <code>extensions</code> field SHOULD NOT exceed 32.
+The ASN.1 module bounds the <code>capabilities</code> sequence with SIZE(1..MAX)
+and does not fix a numeric limit on the wire format. Certificates
+whose capability entries exceed 256 MUST be rejected to prevent DoS
+attacks; typical deployments carry far fewer entries, and deployments
+SHOULD keep the capability set as small as practical.<a href="#section-4.5.8-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="capability-parameters-intersection">
+<section id="section-4.5.9">
+          <h4 id="name-capability-parameters-inter">
+<a href="#section-4.5.9" class="section-number selfRef">4.5.9. </a><a href="#name-capability-parameters-inter" class="section-name selfRef">Capability Parameters Intersection</a>
+          </h4>
+<p id="section-4.5.9-1">When matching capabilities across P_grants and C_agent, parameter
+intersection follows these rules:<a href="#section-4.5.9-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.5.9-2.1">
+              <p id="section-4.5.9-2.1.1">If C_agent.parameters exceed the boundary defined in
+P_grants.parameters, the capability entry is invalid (filtered
+or rejected).<a href="#section-4.5.9-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-4.5.9-2.2">
+              <p id="section-4.5.9-2.2.1">Otherwise, C_agent.parameters are used in full (agent-specified
+values within principal-defined boundaries).<a href="#section-4.5.9-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-4.5.9-3">Examples:<a href="#section-4.5.9-3" class="pilcrow">¶</a></p>
+<table class="center" id="table-5">
+            <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
+<thead>
+              <tr>
+                <th class="text-left" rowspan="1" colspan="1">P_grants</th>
+                <th class="text-left" rowspan="1" colspan="1">C_agent</th>
+                <th class="text-left" rowspan="1" colspan="1">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>max_rows=1000</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>max_rows=100</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">Accept, use <code>max_rows=100</code>
+</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>max_rows=1000</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">
+                  <code>max_rows=5000</code>
+</td>
+                <td class="text-left" rowspan="1" colspan="1">Reject (exceeds boundary)</td>
+              </tr>
+            </tbody>
+          </table>
+</section>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="validation-procedure">
+<section id="section-5">
+      <h2 id="name-validation-procedure">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-validation-procedure" class="section-name selfRef">Validation Procedure</a>
+      </h2>
+<p id="section-5-1">This section defines the validation procedure that a gateway or
+relying party MUST perform when processing an AIC-bearing certificate.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<div id="validation-pipeline">
+<section id="section-5.1">
+        <h3 id="name-validation-pipeline">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-validation-pipeline" class="section-name selfRef">Validation Pipeline</a>
+        </h3>
+<p id="section-5.1-1">The gateway performs the following validation steps in order after
+TLS handshake completion:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.1-2">
+<li id="section-5.1-2.1">
+            <p id="section-5.1-2.1.1"><strong>Certificate Chain</strong> (<span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>): Verify the certificate chain
+up to a trusted root, including signature validation, validity
+periods, and basic constraints.<a href="#section-5.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.2">
+            <p id="section-5.1-2.2.1"><strong>Revocation Status</strong>: Verify that neither the end-entity
+certificate nor any intermediate certificate in the chain has been
+revoked. Implementations MAY use CRLs (<span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>), OCSP
+(<span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>), or OCSP Must-Staple (<span>[<a href="#RFC7633" class="cite xref">RFC7633</a>]</span>). In offline
+deployments, a locally cached CRL or a short validity window MAY
+serve as an alternative revocation mechanism.<a href="#section-5.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.3">
+            <p id="section-5.1-2.3.1"><strong>AIC Extension Parsing</strong>: Parse the AIC SEQUENCE. If the
+extension is marked critical and cannot be parsed, the certificate
+MUST be rejected.<a href="#section-5.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.4">
+            <p id="section-5.1-2.4.1"><strong>DelegationAuthorization Verification</strong>: Verify the principal's
+signature in <code>delegationAuthorization.signatureValue</code>:<a href="#section-5.1-2.4.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1-2.4.2.1">
+                <p id="section-5.1-2.4.2.1.1">Reconstruct the DER encoding of DelegationAuthTBS (including
+reason and authorizationConstraints if present). The TBS is
+DER-encoded in the field order defined in the ASN.1 module;
+DEFAULT fields MAY be omitted and are interpreted with their
+default values.<a href="#section-5.1-2.4.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-5.1-2.4.2.2">
+                <p id="section-5.1-2.4.2.2.1">Use the principal's public key (identified by
+principalUid.keyHash) to verify <code>signatureValue</code>.<a href="#section-5.1-2.4.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-5.1-2.4.2.3">
+                <p id="section-5.1-2.4.2.3.1">Cross-verify that hashAlgo(principal_cert.SPKI) equals
+principalUid.keyHash (hashAlgo omitted means SHA-256).<a href="#section-5.1-2.4.2.3.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-5.1-2.4.2.4">
+                <p id="section-5.1-2.4.2.4.1">Verify that the certificate validity period
+(notAfter - notBefore) does not exceed
+delegationAuthorization.requestedLifetime, and that
+requestedLifetime is at most 86400 seconds (1 day).<a href="#section-5.1-2.4.2.4.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-5.1-2.4.2.5">
+                <p id="section-5.1-2.4.2.5.1">Verify that <code>signatureAlgorithm</code> is one of the permitted
+algorithms: ECDSA with SHA-256 (MUST), ECDSA with SHA-384 or
+SHA-512 (MAY), RSA with SHA-256 (MUST), RSA with SHA-384 or
+SHA-512 (MAY), RSA-PSS with SHA-256 (MAY), or Ed25519 (MAY).
+Any other algorithm MUST be rejected.<a href="#section-5.1-2.4.2.5.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-5.1-2.5">
+            <p id="section-5.1-2.5.1"><strong>PA.authorizationConstraints Check</strong>: If the
+PrincipalAuthorization extension in the principal's certificate
+contains authorizationConstraints, evaluate them. PA constraints
+limit the authorization behavior and are independent of
+AIC.authorizationConstraints.<a href="#section-5.1-2.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.6">
+            <p id="section-5.1-2.6.1"><strong>AIC.authorizationConstraints Check</strong>: If
+AIC.authorizationConstraints is present, evaluate each constraint
+it recognizes with AND logic. All constraints MUST be satisfied.
+Unknown constraint types are logged as audit warnings and ignored
+(forward-compatible). This step is executed before capability
+evaluation for fast rejection of unauthorized connections.<a href="#section-5.1-2.6.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.7">
+            <p id="section-5.1-2.7.1"><strong>Delegation Mode Check</strong>: If <code>delegationMode</code> is representative:<a href="#section-5.1-2.7.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1-2.7.2.1">
+                <p id="section-5.1-2.7.2.1.1">Load the principal's certificate and its PrincipalAuthorization
+extension.<a href="#section-5.1-2.7.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-5.1-2.7.2.2">
+                <p id="section-5.1-2.7.2.2.1">Verify allowedMode permits representative delegation.<a href="#section-5.1-2.7.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-5.1-2.7.2.3">
+                <p id="section-5.1-2.7.2.3.1">Verify that C_agent is a subset of P_grants (P (AND) C (AND) T).<a href="#section-5.1-2.7.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-5.1-2.8">
+            <p id="section-5.1-2.8.1"><strong>Delegation Depth Check</strong>: If a DelegationDepthControl extension
+is present, verify that chainDepth does not exceed maxDepth. As a
+best practice, deployments SHOULD NOT accept chains with
+chainDepth &gt; 1 (or maxDepth &gt; 1); such chains are outside the
+recommended deployment envelope of this specification.<a href="#section-5.1-2.8.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.9">
+            <p id="section-5.1-2.9.1"><strong>Capability Evaluation</strong>: For the capability required by the
+current request, route evaluation to the plugin registered for its
+<code>schemeId</code>. If no plugin is registered or the capability is
+unknown, the request MUST be denied. Other capabilities carried in
+the certificate but not relevant to the current request do not
+affect the decision.<a href="#section-5.1-2.9.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-2.10">
+            <p id="section-5.1-2.10.1"><strong>Decision</strong>: If all validation steps pass, the relying party
+   SHOULD allow the connection. If any step fails, the relying party
+   MUST reject the request. Deployments SHOULD record the rejection
+   with sufficient diagnostic information for audit purposes.<a href="#section-5.1-2.10.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+</section>
+</div>
+<div id="offline-validation">
+<section id="section-5.2">
+        <h3 id="name-offline-validation">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-offline-validation" class="section-name selfRef">Offline Validation</a>
+        </h3>
+<p id="section-5.2-1">In offline or air-gapped deployments without access to CRL or OCSP
+responders, the relying party MUST accept the risk that a revoked
+certificate may be accepted until the next cache refresh. Mitigations
+include:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2-2.1">
+            <p id="section-5.2-2.1.1">Short certificate validity windows (RECOMMENDED &lt;= 1 hour);<a href="#section-5.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-5.2-2.2">
+            <p id="section-5.2-2.2.1">Locally cached CRL shards with freshness checks;<a href="#section-5.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-5.2-2.3">
+            <p id="section-5.2-2.3.1">authorizationConstraints evaluated entirely offline during TLS
+handshake.<a href="#section-5.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-5.2-3">The principal's certificate is obtained from the Credential Bundle
+presented by the Agent during TLS handshake (TLS 1.3 allows multiple
+CertificateEntry messages). If the principal's certificate is not
+present in the chain and no local cache is available, the gateway MUST
+reject the connection (Fail-Close).
+The transport mechanism for the credential bundle is a deployment
+detail and is not defined as a new TLS message type by this
+specification.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="principalauthorization-extension">
+<section id="section-6">
+      <h2 id="name-principalauthorization-exte">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-principalauthorization-exte" class="section-name selfRef">PrincipalAuthorization Extension</a>
+      </h2>
+<p id="section-6-1">The PrincipalAuthorization extension (OID <code>1.3.6.1.4.1.66257.1.2</code>) is a
+companion X.509 extension carried in the Principal's certificate. It
+declares the Principal's authority boundaries, including grant
+declarations, authorization constraints, and delegation policies.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<div id="asn1-definition">
+<section id="section-6.1">
+        <h3 id="name-asn1-definition">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-asn1-definition" class="section-name selfRef">ASN.1 Definition</a>
+        </h3>
+<div class="alignLeft art-text artwork" id="section-6.1-1">
+<pre>
+PrincipalAuthorization ::= SEQUENCE {
+    version                  INTEGER DEFAULT 1,
+    grants                   SEQUENCE SIZE(1..MAX) OF Capability,
+    authorizationConstraints [0] EXPLICIT SEQUENCE
+        SIZE(0..32) OF Capability OPTIONAL,
+    delegationPolicy         [1] EXPLICIT DelegationPolicy OPTIONAL,
+    extensions               [2] EXPLICIT AICExtensions OPTIONAL
+}
+
+DelegationPolicy ::= SEQUENCE {
+    version             INTEGER DEFAULT 1,
+    maxAgents           INTEGER DEFAULT 1,
+    allowedMode         DelegationModeEnum DEFAULT authorizedOnly,
+    maxSessionHours     [0] EXPLICIT INTEGER OPTIONAL
+}
+
+DelegationModeEnum ::= INTEGER {
+    authorizedOnly        (0),
+    representativeAllowed (1)
+} (0..1)
+</pre><a href="#section-6.1-1" class="pilcrow">¶</a>
+</div>
+<p id="section-6.1-2">The <code>grants</code> field defines the set of capabilities the principal may
+grant to agents -- serving as the upper bound (P_grants) in the
+permission intersection model.<a href="#section-6.1-2" class="pilcrow">¶</a></p>
+<p id="section-6.1-3">The <code>authorizationConstraints</code> field carries principal-level
+authorization boundary constraints, reusing the Capability container
+with <code>schemeId="varwof/constraint-v1"</code>. PA constraints and AIC
+constraints are
+evaluated independently -- they operate at different semantic layers
+and are not in a subset relationship.<a href="#section-6.1-3" class="pilcrow">¶</a></p>
+<p id="section-6.1-4">The <code>delegationPolicy</code> field defines the Principal's delegation
+boundary: how many concurrent agents are permitted (maxAgents),
+which delegation modes are allowed (allowedMode), and optionally
+the maximum session hours (maxSessionHours).<a href="#section-6.1-4" class="pilcrow">¶</a></p>
+<p id="section-6.1-5">maxAgents (in DelegationPolicy) and the max-concurrent constraint (in
+authorizationConstraints) have distinct semantics: maxAgents limits
+how many Agent instances the Principal may delegate to concurrently,
+whereas max-concurrent limits how many concurrent connections a single
+Agent may establish. They are enforced at different layers (policy
+boundary vs execution boundary) and are not interchangeable.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="principal-key-rotation">
+<section id="section-6.2">
+        <h3 id="name-principal-key-rotation">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-principal-key-rotation" class="section-name selfRef">Principal Key Rotation</a>
+        </h3>
+<p id="section-6.2-1">When the principal's private key is compromised and a new key pair is
+generated, the SPKI hash in <code>principalUid.keyHash</code> changes, causing all
+existing representative-mode agent certificates to fail authorization
+checks. This is an intentional design: when the key pair changes, all
+associated agent certificates are automatically invalidated through a
+key management operation rather than a revocation broadcast. When the
+principal renews their certificate using the same key pair, the SPKI
+remains unchanged and existing agent authorizations continue without
+requiring re-issuance.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="deployment-models">
+<section id="section-7">
+      <h2 id="name-deployment-models">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-deployment-models" class="section-name selfRef">Deployment Models</a>
+      </h2>
+<div id="enterpriseregulated-model">
+<section id="section-7.1">
+        <h3 id="name-enterprise-regulated-model">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-enterprise-regulated-model" class="section-name selfRef">Enterprise/Regulated Model</a>
+        </h3>
+<ul class="normal">
+<li class="normal" id="section-7.1-1.1">
+            <p id="section-7.1-1.1.1">The <code>principalUid</code> field MUST be populated with a verifiable natural
+person identifier.<a href="#section-7.1-1.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-1.2">
+            <p id="section-7.1-1.2.1">The <code>delegationAuthorization</code> field MUST be present and
+cryptographically validated.<a href="#section-7.1-1.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-1.3">
+            <p id="section-7.1-1.3.1">Representative mode MUST only be used with explicit
+PrincipalAuthorization delegation grants.<a href="#section-7.1-1.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-1.4">
+            <p id="section-7.1-1.4.1">Certificate validity SHOULD be short-lived (hours to days).<a href="#section-7.1-1.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-1.5">
+            <p id="section-7.1-1.5.1">authorizationConstraints SHOULD carry IP range, concurrency, and
+time window boundaries.<a href="#section-7.1-1.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-1.6">
+            <p id="section-7.1-1.6.1">All AIC-bearing connections SHOULD be logged.<a href="#section-7.1-1.6.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="consumerindividual-model">
+<section id="section-7.2">
+        <h3 id="name-consumer-individual-model">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-consumer-individual-model" class="section-name selfRef">Consumer/Individual Model</a>
+        </h3>
+<ul class="normal">
+<li class="normal" id="section-7.2-1.1">
+            <p id="section-7.2-1.1.1">The <code>principalUid</code> MAY be omitted or contain a pseudonymous
+identifier.<a href="#section-7.2-1.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-1.2">
+            <p id="section-7.2-1.2.1">The <code>delegationAuthorization</code> field MAY be omitted for low-risk
+operations.<a href="#section-7.2-1.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-1.3">
+            <p id="section-7.2-1.3.1">Representative mode SHOULD NOT be used.<a href="#section-7.2-1.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-1.4">
+            <p id="section-7.2-1.4.1">Deployments in this model prioritize consumer privacy protections
+over granular identity binding.<a href="#section-7.2-1.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="extensibility-framework">
+<section id="section-8">
+      <h2 id="name-extensibility-framework">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-extensibility-framework" class="section-name selfRef">Extensibility Framework</a>
+      </h2>
+<p id="section-8-1">The <code>extensions</code> field in AIC provides an extensibility mechanism for
+vendor-specific and user-specific metadata, analogous to X.509 v3
+extensions but scoped to the AIC context.<a href="#section-8-1" class="pilcrow">¶</a></p>
+<p id="section-8-2">Each extension in the <code>extensions</code> sequence is identified by a globally
+unique OID. The following guidelines apply:<a href="#section-8-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-8-3.1">
+          <p id="section-8-3.1.1">Vendor-specific extensions SHOULD use OIDs under the vendor's own
+IANA Private Enterprise Number.<a href="#section-8-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-3.2">
+          <p id="section-8-3.2.1">Unknown extensions with <code>critical = TRUE</code> MUST cause certificate
+rejection.<a href="#section-8-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-3.3">
+          <p id="section-8-3.3.1">Unknown extensions with <code>critical = FALSE</code> (default) MAY be silently
+ignored.<a href="#section-8-3.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-8-4">This document specifies the container structure only. Semantics are
+defined by the OID assignee.<a href="#section-8-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="privacy-considerations-gdpr-right-to-erasure">
+<section id="section-9">
+      <h2 id="name-privacy-considerations-gdpr">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-privacy-considerations-gdpr" class="section-name selfRef">Privacy Considerations (GDPR / Right to Erasure)</a>
+      </h2>
+<p id="section-9-1">AIC certificates are static X.509 data objects. Once issued, the
+<code>principalUid</code> field cannot be modified or deleted from distributed
+certificates. Deployments MUST ensure that:<a href="#section-9-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-9-2">
+<li id="section-9-2.1">
+          <p id="section-9-2.1.1">The <code>identifier</code> field within <code>principalUid</code> does not contain raw
+personally identifiable information (PII) such as full names,
+national ID numbers, or email addresses. Internal UUIDs or
+pseudonymous identifiers MUST be used instead.<a href="#section-9-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-9-2.2">
+          <p id="section-9-2.2.1">The mapping table between pseudonymous identifiers and natural
+persons is stored in a compliant database that supports deletion
+under GDPR Article 17 or equivalent regulations.<a href="#section-9-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-9-2.3">
+          <p id="section-9-2.3.1">Certificate revocation (CRL/OCSP) is the only mechanism available
+to signal that a principal no longer authorizes a given agent;
+revocation does not erase the certificate itself.<a href="#section-9-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-9-2.4">
+          <p id="section-9-2.4.1">AIC certificates SHOULD be treated as stateless credentials by
+relying parties: they are parsed and verified during the TLS
+handshake, after which the raw certificate MAY be discarded and
+need not be persistently stored.<a href="#section-9-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-9-2.5">
+          <p id="section-9-2.5.1">Audit logs SHOULD be minimized: they need not record the full
+principalUid structure or extension content. A session-bound
+fingerprint, the operation summary, the decision, and the
+pseudonymous identifier are sufficient for accountability.<a href="#section-9-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-9-2.6">
+          <p id="section-9-2.6.1">Log retention MUST be configurable by the deployment according to
+applicable jurisdictional requirements. A layered model is
+recommended: long-term archival for high-accountability regimes,
+limited cleanup periods for standard deployments, and an ephemeral
+no-mapping mode for consumer scenarios.<a href="#section-9-2.6.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-9-2.7">
+          <p id="section-9-2.7.1">Cryptographic evidence and log mappings are independent: the
+DelegationAuthorization signature can be verified on its own
+without relying on audit log mappings, so deleting a pseudonym
+mapping table does not invalidate the cryptographic
+evidence of authorization.<a href="#section-9-2.7.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<p id="section-9-3">Since certificates are immutable once issued, data-subject rights
+(access, rectification, erasure) are realized through certificate
+revocation and re-issuance: revoke the certificate carrying the old
+identifier, issue a new certificate with a fresh pseudonymous
+identifier, and delete the associated mapping entries.<a href="#section-9-3" class="pilcrow">¶</a></p>
+<p id="section-9-4">This specification provides privacy-preserving mechanisms only.
+Legal compliance (lawful basis, cross-border transfer, breach
+notification, and other obligations) is the responsibility of the
+deployment acting as data controller or processor.<a href="#section-9-4" class="pilcrow">¶</a></p>
+<p id="section-9-5">All data carried in the AIC extension is visible during the TLS
+handshake. Implementations MUST NOT place sensitive data in any
+certificate extension.<a href="#section-9-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="security-considerations">
+<section id="section-10">
+      <h2 id="name-security-considerations">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<p id="section-10-1">The AIC extension is not an authentication requirement by itself:
+the X.509 certificate chain already authenticates the agent, and the
+AIC extension carries authorization-related information that the
+relying party may evaluate. Deployments that require AIC-based
+authorization MUST configure the relying party to require and process
+the AIC extension.<a href="#section-10-1" class="pilcrow">¶</a></p>
+<p id="section-10-2">AIC does not constrain the authority of a CA to issue
+PrincipalAuthorization extensions. The trustworthiness of a
+PrincipalAuthorization depends on the CA issuance policy and the
+trust anchor configuration.<a href="#section-10-2" class="pilcrow">¶</a></p>
+<div id="threat-model">
+<section id="section-10.1">
+        <h3 id="name-threat-model">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-threat-model" class="section-name selfRef">Threat Model</a>
+        </h3>
+<p id="section-10.1-1">This specification considers the following adversary models:<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+<p id="section-10.1-2"><strong>Network Attacker (E):</strong> A network-level adversary capable of
+intercepting, modifying, and replaying TLS connections. This adversary
+does not have access to any private keys.<a href="#section-10.1-2" class="pilcrow">¶</a></p>
+<p id="section-10.1-3"><strong>Malicious Agent (M):</strong> An authenticated agent in possession of a
+valid AIC certificate that attempts to escalate privileges, impersonate
+other agents, or exceed its authorized capabilities.<a href="#section-10.1-3" class="pilcrow">¶</a></p>
+<p id="section-10.1-4"><strong>Compromised Principal (P):</strong> A principal whose private key has been
+leaked. The attacker can sign arbitrary DelegationAuthorization
+payloads using the compromised key.<a href="#section-10.1-4" class="pilcrow">¶</a></p>
+<p id="section-10.1-5"><strong>Compromised CA (C):</strong> An adversary with access to a CA signing key.
+This adversary can issue arbitrary certificates and is the most
+powerful in the model.<a href="#section-10.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="threat-mitigations">
+<section id="section-10.2">
+        <h3 id="name-threat-mitigations">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-threat-mitigations" class="section-name selfRef">Threat Mitigations</a>
+        </h3>
+<table class="center" id="table-6">
+          <caption><a href="#table-6" class="selfRef">Table 6</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Threat</th>
+              <th class="text-left" rowspan="1" colspan="1">Mitigation</th>
+              <th class="text-left" rowspan="1" colspan="1">Mechanism</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Agent impersonation</td>
+              <td class="text-left" rowspan="1" colspan="1">Cryptographic identity binding</td>
+              <td class="text-left" rowspan="1" colspan="1">X.509 CA-issued certificate, BasicConstraints CA:FALSE</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Principal denial of authorization</td>
+              <td class="text-left" rowspan="1" colspan="1">Digital signature on authorization</td>
+              <td class="text-left" rowspan="1" colspan="1">DelegationAuthorization.signatureValue over DelegationAuthTBS</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Capability escalation</td>
+              <td class="text-left" rowspan="1" colspan="1">Permission subset check</td>
+              <td class="text-left" rowspan="1" colspan="1">P_grants (AND) C_agent (AND) T_policy intersection</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Cross-CA role spoofing</td>
+              <td class="text-left" rowspan="1" colspan="1">Trust anchor hash verification</td>
+              <td class="text-left" rowspan="1" colspan="1">Trust anchor fingerprint comparison in offline plugin parameters</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Unknown extension bypass</td>
+              <td class="text-left" rowspan="1" colspan="1">Critical flag enforcement</td>
+              <td class="text-left" rowspan="1" colspan="1">Reject on unknown critical extension</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Signature replay</td>
+              <td class="text-left" rowspan="1" colspan="1">Nonce binding in TBS</td>
+              <td class="text-left" rowspan="1" colspan="1">32-byte nonce in DelegationAuthTBS, CA uniqueness check</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Authorization forgery</td>
+              <td class="text-left" rowspan="1" colspan="1">Dual-signature nesting</td>
+              <td class="text-left" rowspan="1" colspan="1">CA signature over TBSCertificate + principal signature in AIC extension</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+<div id="offline-validation-risks">
+<section id="section-10.3">
+        <h3 id="name-offline-validation-risks">
+<a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-offline-validation-risks" class="section-name selfRef">Offline Validation Risks</a>
+        </h3>
+<p id="section-10.3-1">In offline deployments, the risk of accepting a revoked certificate
+exists until the next cache refresh. Mitigations include short
+certificate validity windows and strict authorizationConstraints
+that limit the blast radius (IP range, concurrency caps).<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authorization-constraint-integrity">
+<section id="section-10.4">
+        <h3 id="name-authorization-constraint-in">
+<a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-authorization-constraint-in" class="section-name selfRef">Authorization Constraint Integrity</a>
+        </h3>
+<p id="section-10.4-1">The authorizationConstraints field is carried inside the AIC
+extension, which is covered by the CA signature over the
+TBSCertificate; a modification of any constraint therefore fails
+certificate signature validation. The effectiveness of constraint
+enforcement also depends on the gateway evaluating the constraints it
+recognizes and on constraint plugins implementing the declared
+semantics. Constraints are boundary conditions that limit the blast
+radius of a compromised or malicious agent; they are not a substitute
+for gateway-local policy controls such as rate limiting or resource
+quotas.<a href="#section-10.4-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="principal-key-hash-binding">
+<section id="section-10.5">
+        <h3 id="name-principal-key-hash-binding">
+<a href="#section-10.5" class="section-number selfRef">10.5. </a><a href="#name-principal-key-hash-binding" class="section-name selfRef">Principal Key Hash Binding</a>
+        </h3>
+<p id="section-10.5-1">The principalUid.keyHash field binds the delegation authorization to
+the principal's public key through the hash algorithm identified by
+hashAlgo. The hash output is limited to 64 bytes by the ASN.1 SIZE
+constraint, and a collision in a cryptographically secure hash
+function is assumed to be computationally infeasible under the
+security assumptions of the selected hash algorithm. In addition,
+keyHash is used to locate and bind the
+principal's certificate within the credential bundle; signature
+verification uses the principal's public key after certificate chain
+validation, so a hash collision alone would not enable an attacker to
+produce a valid principal signature. keyHash itself does not
+establish trust: trust derives from certificate chain validation and
+the principal's signature. keyHash is a locator and binding mechanism
+only.<a href="#section-10.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="nonce-replay-protection">
+<section id="section-10.6">
+        <h3 id="name-nonce-replay-protection">
+<a href="#section-10.6" class="section-number selfRef">10.6. </a><a href="#name-nonce-replay-protection" class="section-name selfRef">Nonce Replay Protection</a>
+        </h3>
+<p id="section-10.6-1">The 32-byte nonce in DelegationAuthTBS is signed as part of the DER
+encoding, making it a cryptographic input to the principal's signature
+-- not a plaintext parameter. The CA verifies nonce uniqueness at
+issuance time and persists used nonces. The gateway MAY optionally
+maintain a local NonceCache for additional replay detection, but this
+is not required: the primary defense is the CA-level uniqueness check.
+Replay protection is therefore enforced at the CA issuance layer
+(nonce uniqueness at issuance time), not at the gateway runtime; the
+gateway's optional cache is a secondary defense only.<a href="#section-10.6-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="iana-considerations">
+<section id="section-11">
+      <h2 id="name-iana-considerations">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<div id="private-enterprise-number-assignment">
+<section id="section-11.1">
+        <h3 id="name-private-enterprise-number-a">
+<a href="#section-11.1" class="section-number selfRef">11.1. </a><a href="#name-private-enterprise-number-a" class="section-name selfRef">Private Enterprise Number Assignment</a>
+        </h3>
+<p id="section-11.1-1">This document uses the IANA Private Enterprise Number 66257, assigned
+to Varwof PKI (contact: Jijie Wei, pki@varwof.com). The OID prefix is:<a href="#section-11.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-11.1-2">
+<pre>
+1.3.6.1.4.1.66257
+</pre><a href="#section-11.1-2" class="pilcrow">¶</a>
+</div>
+</section>
+</div>
+<div id="oid-registration">
+<section id="section-11.2">
+        <h3 id="name-oid-registration">
+<a href="#section-11.2" class="section-number selfRef">11.2. </a><a href="#name-oid-registration" class="section-name selfRef">OID Registration</a>
+        </h3>
+<p id="section-11.2-1">The following OIDs are defined in this document:<a href="#section-11.2-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-11.2-2">
+          <dt id="section-11.2-2.1">1.3.6.1.4.1.66257.1.1:</dt>
+          <dd style="margin-left: 1.5em" id="section-11.2-2.2">
+            <p id="section-11.2-2.2.1">AIC Extension (Section AIC Extension Definition)<a href="#section-11.2-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-11.2-2.3">1.3.6.1.4.1.66257.1.2:</dt>
+          <dd style="margin-left: 1.5em" id="section-11.2-2.4">
+            <p id="section-11.2-2.4.1">PrincipalAuthorization Extension (Section PrincipalAuthorization)<a href="#section-11.2-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-11.2-2.5">1.3.6.1.4.1.66257.1.1.4:</dt>
+          <dd style="margin-left: 1.5em" id="section-11.2-2.6">
+            <p id="section-11.2-2.6.1">DelegationDepthControl (Section Multi-Level Delegation)<a href="#section-11.2-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-11.2-3">Additional OIDs under branch 3 (National/Industry Certification) are
+reserved for future allocation. The full OID tree is defined in
+Section OID Tree.<a href="#section-11.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="capability-scheme-registry">
+<section id="section-11.3">
+        <h3 id="name-capability-scheme-registry">
+<a href="#section-11.3" class="section-number selfRef">11.3. </a><a href="#name-capability-scheme-registry" class="section-name selfRef">Capability Scheme Registry</a>
+        </h3>
+<p id="section-11.3-1">This version of the specification does not request an IANA registry.
+Capability scheme identifiers and constraint types are registered
+through an external or community registry of scheme identifiers,
+which follows the vendor/product naming convention. An IANA registry
+may be requested in a future revision if the scheme namespace is
+transitioned to IANA administration.<a href="#section-11.3-1" class="pilcrow">¶</a></p>
+<p id="section-11.3-2">The initial entry in the external registry:<a href="#section-11.3-2" class="pilcrow">¶</a></p>
+<table class="center" id="table-7">
+          <caption><a href="#table-7" class="selfRef">Table 7</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Scheme Identifier</th>
+              <th class="text-left" rowspan="1" colspan="1">Description</th>
+              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">varwof/constraint-v1</td>
+              <td class="text-left" rowspan="1" colspan="1">Authorization boundary constraint (allowed-cidr, max-concurrent, time-window)</td>
+              <td class="text-left" rowspan="1" colspan="1">This document</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-11.3-4">The <code>http</code> and <code>database</code> scheme identifiers are reserved as examples
+of externally defined capability schemes; their semantics are defined
+by the capability schemes themselves and not by this document.<a href="#section-11.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="implementation-status">
+<section id="section-12">
+      <h2 id="name-implementation-status">
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-implementation-status" class="section-name selfRef">Implementation Status</a>
+      </h2>
+<p id="section-12-1">Per <span>[<a href="#RFC7942" class="cite xref">RFC7942</a>]</span>, this specification is supported by a reference
+implementation:<a href="#section-12-1" class="pilcrow">¶</a></p>
+<p id="section-12-2">A reference implementation written in Go implements the protocol
+defined in this specification, including certificate issuance, AIC
+extension parsing, admission decisions, revocation, and offline
+authorization. The implementation is not yet publicly available;
+a public release is planned. Repository URLs will be added when the
+implementation is published.<a href="#section-12-2" class="pilcrow">¶</a></p>
+<p id="section-12-3">Tested capabilities include: certificate issuance with
+authorizationConstraints, AIC extension parsing,
+DelegationAuthorization signature verification, permission
+intersection (P (AND) C (AND) T) decision, capability plugin<a href="#section-12-3" class="pilcrow">¶</a></p>
+<p id="section-12-4">routing, and offline constraint validation.<a href="#section-12-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="interoperability">
+<section id="section-13">
+      <h2 id="name-interoperability">
+<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-interoperability" class="section-name selfRef">Interoperability</a>
+      </h2>
+<div id="relationship-to-standard-x509-extensions">
+<section id="section-13.1">
+        <h3 id="name-relationship-to-standard-x5">
+<a href="#section-13.1" class="section-number selfRef">13.1. </a><a href="#name-relationship-to-standard-x5" class="section-name selfRef">Relationship to Standard X.509 Extensions</a>
+        </h3>
+<div id="key-usage-and-extended-key-usage">
+<section id="section-13.1.1">
+          <h4 id="name-key-usage-and-extended-key-">
+<a href="#section-13.1.1" class="section-number selfRef">13.1.1. </a><a href="#name-key-usage-and-extended-key-" class="section-name selfRef">Key Usage and Extended Key Usage</a>
+          </h4>
+<p id="section-13.1.1-1">AIC-enabled certificates SHOULD include the digitalSignature key usage
+(<span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span> Section 4.2.1.3). Extended Key Usage MUST include
+id-kp-clientAuth when the certificate is used for TLS client
+authentication.<a href="#section-13.1.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="basic-constraints">
+<section id="section-13.1.2">
+          <h4 id="name-basic-constraints">
+<a href="#section-13.1.2" class="section-number selfRef">13.1.2. </a><a href="#name-basic-constraints" class="section-name selfRef">Basic Constraints</a>
+          </h4>
+<p id="section-13.1.2-1">AIC Agent certificates MUST have BasicConstraints CA:FALSE. CA
+issuance MUST reject any request where the requester holds an AIC
+certificate, preventing Agent-to-Agent chaining in single-level
+deployment mode. In a delegation chain of depth 1, the sub-agent's
+DelegationAuthorization is anchored to the delegating agent's AIC
+certificate; as a best practice, the CA SHOULD NOT issue a certificate
+with DelegationDepthControl.maxDepth greater than 1.<a href="#section-13.1.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="interoperability-test-matrix">
+<section id="section-13.2">
+        <h3 id="name-interoperability-test-matri">
+<a href="#section-13.2" class="section-number selfRef">13.2. </a><a href="#name-interoperability-test-matri" class="section-name selfRef">Interoperability Test Matrix</a>
+        </h3>
+<table class="center" id="table-8">
+          <caption><a href="#table-8" class="selfRef">Table 8</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Scenario</th>
+              <th class="text-left" rowspan="1" colspan="1">AIC Gateway Behavior</th>
+              <th class="text-left" rowspan="1" colspan="1">Legacy Client Behavior</th>
+              <th class="text-left" rowspan="1" colspan="1">Compatibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Client without AIC extension</td>
+              <td class="text-left" rowspan="1" colspan="1">Reject if RequireAIC=true; pass-through if false</td>
+              <td class="text-left" rowspan="1" colspan="1">Normal mTLS</td>
+              <td class="text-left" rowspan="1" colspan="1">Config-dependent</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Client with AIC</td>
+              <td class="text-left" rowspan="1" colspan="1">Full admission pipeline</td>
+              <td class="text-left" rowspan="1" colspan="1">AIC extension ignored</td>
+              <td class="text-left" rowspan="1" colspan="1">Yes</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Multiple capabilities (&lt;=64)</td>
+              <td class="text-left" rowspan="1" colspan="1">Full parse and evaluate</td>
+              <td class="text-left" rowspan="1" colspan="1">Ignored</td>
+              <td class="text-left" rowspan="1" colspan="1">Yes</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Multiple capabilities (&gt;256)</td>
+              <td class="text-left" rowspan="1" colspan="1">Reject (DoS protection)</td>
+              <td class="text-left" rowspan="1" colspan="1">Ignored</td>
+              <td class="text-left" rowspan="1" colspan="1">Limited</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Unknown capability scheme</td>
+              <td class="text-left" rowspan="1" colspan="1">Deny</td>
+              <td class="text-left" rowspan="1" colspan="1">Ignored</td>
+              <td class="text-left" rowspan="1" colspan="1">Limited</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">OCSP MUST-Staple missing</td>
+              <td class="text-left" rowspan="1" colspan="1">Reject</td>
+              <td class="text-left" rowspan="1" colspan="1">Normal OCSP</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Offline + no CRL cache</td>
+              <td class="text-left" rowspan="1" colspan="1">Fail-Close (reject)</td>
+              <td class="text-left" rowspan="1" colspan="1">Fail-Open (allow)</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+<div id="tls-integration">
+<section id="section-13.3">
+        <h3 id="name-tls-integration">
+<a href="#section-13.3" class="section-number selfRef">13.3. </a><a href="#name-tls-integration" class="section-name selfRef">TLS Integration</a>
+        </h3>
+<div id="handshake-requirements">
+<section id="section-13.3.1">
+          <h4 id="name-handshake-requirements">
+<a href="#section-13.3.1" class="section-number selfRef">13.3.1. </a><a href="#name-handshake-requirements" class="section-name selfRef">Handshake Requirements</a>
+          </h4>
+<p id="section-13.3.1-1">The AIC extension does not introduce a new TLS handshake protocol.
+Instead, it leverages the existing X.509 certificate chain presented
+during TLS 1.3 handshakes. When a TLS server requires AIC-authenticated
+connections, it SHOULD include the AIC OID in the CertificateRequest
+message.<a href="#section-13.3.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="tls-alert-codes">
+<section id="section-13.3.2">
+          <h4 id="name-tls-alert-codes">
+<a href="#section-13.3.2" class="section-number selfRef">13.3.2. </a><a href="#name-tls-alert-codes" class="section-name selfRef">TLS Alert Codes</a>
+          </h4>
+<p id="section-13.3.2-1">The following is a recommended mapping from AIC conditions to the
+official TLS alert codes defined in the IANA TLS Alert Registry
+(<span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span>); implementations MAY choose appropriate alerts in
+accordance with the TLS specification.<a href="#section-13.3.2-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-9">
+            <caption><a href="#table-9" class="selfRef">Table 9</a></caption>
+<thead>
+              <tr>
+                <th class="text-left" rowspan="1" colspan="1">Condition</th>
+                <th class="text-left" rowspan="1" colspan="1">TLS Alert</th>
+                <th class="text-left" rowspan="1" colspan="1">Code</th>
+                <th class="text-left" rowspan="1" colspan="1">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">AIC required but missing</td>
+                <td class="text-left" rowspan="1" colspan="1">unsupported_extension</td>
+                <td class="text-left" rowspan="1" colspan="1">116</td>
+                <td class="text-left" rowspan="1" colspan="1">Client MUST include AIC</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">AIC malformed</td>
+                <td class="text-left" rowspan="1" colspan="1">bad_certificate</td>
+                <td class="text-left" rowspan="1" colspan="1">42</td>
+                <td class="text-left" rowspan="1" colspan="1">Parsing failure</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">Capability not authorized</td>
+                <td class="text-left" rowspan="1" colspan="1">certificate_unknown</td>
+                <td class="text-left" rowspan="1" colspan="1">46</td>
+                <td class="text-left" rowspan="1" colspan="1">Permission denied</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">Impersonation without DA</td>
+                <td class="text-left" rowspan="1" colspan="1">access_denied</td>
+                <td class="text-left" rowspan="1" colspan="1">49</td>
+                <td class="text-left" rowspan="1" colspan="1">Missing authorization</td>
+              </tr>
+              <tr>
+                <td class="text-left" rowspan="1" colspan="1">Certificate expired/revoked</td>
+                <td class="text-left" rowspan="1" colspan="1">certificate_expired</td>
+                <td class="text-left" rowspan="1" colspan="1">45</td>
+                <td class="text-left" rowspan="1" colspan="1">Lifecycle check failed</td>
+              </tr>
+            </tbody>
+          </table>
+</section>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="limitations">
+<section id="section-14">
+      <h2 id="name-limitations">
+<a href="#section-14" class="section-number selfRef">14. </a><a href="#name-limitations" class="section-name selfRef">Limitations</a>
+      </h2>
+<p id="section-14-1">This specification has the following limitations:<a href="#section-14-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-14-2">
+<li id="section-14-2.1">
+          <p id="section-14-2.1.1"><strong>Delegation depth limited to 1</strong>: Single-level delegation
+(Principal -&gt; Agent) is the default; a chain of depth 1
+(Principal -&gt; Agent -&gt; sub-Agent) MAY be supported when needed.
+Chains deeper than 1 are not recommended (best practice), because
+deeper chains complicate attribution and accountability, which this
+specification anchors to the natural person at the top of the
+chain.<a href="#section-14-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-14-2.2">
+          <p id="section-14-2.2.1"><strong>No distributed state</strong>: Multi-gateway deployments require
+out-of-band state synchronization (nonce cache, concurrency
+tracking).<a href="#section-14-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-14-2.3">
+          <p id="section-14-2.3.1"><strong>Static capability evaluation</strong>: The pure container design defers
+all semantic validation to gateway plugins. Dynamic, context-aware
+policy evaluation is not in scope.<a href="#section-14-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-14-2.4">
+          <p id="section-14-2.4.1"><strong>UDP/DTLS transport</strong>: AIC for TCP/TLS and QUIC is fully specified.
+Non-TLS UDP/DTLS transport is reserved for a future revision.<a href="#section-14-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-14-2.5">
+          <p id="section-14-2.5.1"><strong>Post-quantum readiness</strong>: Algorithm OIDs for hybrid and PQC suites
+are reserved but signature exchange is not yet specified.<a href="#section-14-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-14-2.6">
+          <p id="section-14-2.6.1"><strong>Deployment scale</strong>: Enterprise-scale validation with &gt;1M agents
+is not yet published.<a href="#section-14-2.6.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+</section>
+</div>
+<div id="intellectual-property">
+<section id="section-15">
+      <h2 id="name-intellectual-property">
+<a href="#section-15" class="section-number selfRef">15. </a><a href="#name-intellectual-property" class="section-name selfRef">Intellectual Property</a>
+      </h2>
+<p id="section-15-1">This document is subject to BCP 79 (RFC 8179). The author has filed
+patent applications related to the technologies described in this
+document, including Chinese patent application No. 202611238454.1 and
+No. 202611238460.7 (filed with the China National Intellectual Property
+Administration). The author will file an IPR disclosure with the IETF
+in accordance with BCP 79 requirements. Any applicable IPR
+disclosures are available through the IETF IPR disclosure system.<a href="#section-15-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="section-16">
+      <h2 id="name-acknowledgments">
+<a href="#section-16" class="section-number selfRef">16. </a><a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="section-16-1">The author thanks the IETF community for ongoing discussions on agent
+identity and accountability frameworks.<a href="#section-16-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="change-log">
+<section id="section-17">
+      <h2 id="name-change-log">
+<a href="#section-17" class="section-number selfRef">17. </a><a href="#name-change-log" class="section-name selfRef">Change Log</a>
+      </h2>
+<p id="section-17-1">draft-wei-aic-identity-cert-00 (2026-08-18):
+* Initial individual draft.<a href="#section-17-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sec-combined-references">
+<section id="section-18">
+      <h2 id="name-references">
+<a href="#section-18" class="section-number selfRef">18. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<div id="sec-normative-references">
+<section id="section-18.1">
+        <h3 id="name-normative-references">
+<a href="#section-18.1" class="section-number selfRef">18.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="RFC5280">[RFC5280]</dt>
+        <dd>
+<span class="refAuthor">Cooper, D.</span>, <span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Boeyen, S.</span>, <span class="refAuthor">Housley, R.</span>, and <span class="refAuthor">W. Polk</span>, <span class="refTitle">"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile"</span>, <span class="seriesInfo">RFC 5280</span>, <span class="seriesInfo">DOI 10.17487/RFC5280</span>, <time datetime="2008-05" class="refDate">May 2008</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc5280">https://www.rfc-editor.org/info/rfc5280</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+        <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8174">https://www.rfc-editor.org/info/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC4648">[RFC4648]</dt>
+        <dd>
+<span class="refAuthor">Josefsson, S.</span>, <span class="refTitle">"The Base16, Base32, and Base64 Data Encodings"</span>, <span class="seriesInfo">RFC 4648</span>, <span class="seriesInfo">DOI 10.17487/RFC4648</span>, <time datetime="2006-10" class="refDate">October 2006</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc4648">https://www.rfc-editor.org/info/rfc4648</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5912">[RFC5912]</dt>
+        <dd>
+<span class="refAuthor">Hoffman, P.</span> and <span class="refAuthor">J. Schaad</span>, <span class="refTitle">"New ASN.1 Modules for the Public Key Infrastructure Using X.509 (PKIX)"</span>, <span class="seriesInfo">RFC 5912</span>, <span class="seriesInfo">DOI 10.17487/RFC5912</span>, <time datetime="2010-06" class="refDate">June 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc5912">https://www.rfc-editor.org/info/rfc5912</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6960">[RFC6960]</dt>
+        <dd>
+<span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Myers, M.</span>, <span class="refAuthor">Ankney, R.</span>, <span class="refAuthor">Malpani, A.</span>, <span class="refAuthor">Galperin, S.</span>, and <span class="refAuthor">C. Adams</span>, <span class="refTitle">"X.509 Internet Public Key Infrastructure Online Certificate Status Protocol - OCSP"</span>, <span class="seriesInfo">RFC 6960</span>, <span class="seriesInfo">DOI 10.17487/RFC6960</span>, <time datetime="2013-06" class="refDate">June 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc6960">https://www.rfc-editor.org/info/rfc6960</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7633">[RFC7633]</dt>
+      <dd>
+<span class="refAuthor">Hallam-Baker, P.</span>, <span class="refTitle">"X.509v3 Transport Layer Security (TLS) Feature Extension"</span>, <span class="seriesInfo">RFC 7633</span>, <span class="seriesInfo">DOI 10.17487/RFC7633</span>, <time datetime="2015-10" class="refDate">October 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc7633">https://www.rfc-editor.org/info/rfc7633</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-18.2">
+        <h3 id="name-informative-references">
+<a href="#section-18.2" class="section-number selfRef">18.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="RFC6749">[RFC6749]</dt>
+        <dd>
+<span class="refAuthor">Hardt, D., Ed.</span>, <span class="refTitle">"The OAuth 2.0 Authorization Framework"</span>, <span class="seriesInfo">RFC 6749</span>, <span class="seriesInfo">DOI 10.17487/RFC6749</span>, <time datetime="2012-10" class="refDate">October 2012</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc6749">https://www.rfc-editor.org/info/rfc6749</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7942">[RFC7942]</dt>
+        <dd>
+<span class="refAuthor">Sheffer, Y.</span> and <span class="refAuthor">A. Farrel</span>, <span class="refTitle">"Improving Awareness of Running Code: The Implementation Status Section"</span>, <span class="seriesInfo">BCP 205</span>, <span class="seriesInfo">RFC 7942</span>, <span class="seriesInfo">DOI 10.17487/RFC7942</span>, <time datetime="2016-07" class="refDate">July 2016</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc7942">https://www.rfc-editor.org/info/rfc7942</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8446">[RFC8446]</dt>
+        <dd>
+<span class="refAuthor">Rescorla, E.</span>, <span class="refTitle">"The Transport Layer Security (TLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 8446</span>, <span class="seriesInfo">DOI 10.17487/RFC8446</span>, <time datetime="2018-08" class="refDate">August 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8446">https://www.rfc-editor.org/info/rfc8446</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC3820">[RFC3820]</dt>
+        <dd>
+<span class="refAuthor">Tuecke, S.</span>, <span class="refAuthor">Welch, V.</span>, <span class="refAuthor">Engert, D.</span>, <span class="refAuthor">Pearlman, L.</span>, and <span class="refAuthor">M. Thompson</span>, <span class="refTitle">"Internet X.509 Public Key Infrastructure (PKI) Proxy Certificate Profile"</span>, <span class="seriesInfo">RFC 3820</span>, <span class="seriesInfo">DOI 10.17487/RFC3820</span>, <time datetime="2004-06" class="refDate">June 2004</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc3820">https://www.rfc-editor.org/info/rfc3820</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5755">[RFC5755]</dt>
+        <dd>
+<span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Housley, R.</span>, and <span class="refAuthor">S. Turner</span>, <span class="refTitle">"An Internet Attribute Certificate Profile for Authorization"</span>, <span class="seriesInfo">RFC 5755</span>, <span class="seriesInfo">DOI 10.17487/RFC5755</span>, <time datetime="2010-01" class="refDate">January 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc5755">https://www.rfc-editor.org/info/rfc5755</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="SPIFFE">[SPIFFE]</dt>
+        <dd>
+<span class="refAuthor">SPIFFE Community</span>, <span class="refTitle">"SPIFFE Standard"</span>, <time datetime="2022-05" class="refDate">May 2022</time>, <span>&lt;<a href="https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE.md">https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE.md</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="AGTP">[AGTP]</dt>
+        <dd>
+<span class="refAuthor">Hood, C.</span>, <span class="refTitle">"AGTP Agent Certificate Extension"</span>, <time datetime="2026-06-28" class="refDate">28 June 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-hood-agtp-agent-cert/">https://datatracker.ietf.org/doc/draft-hood-agtp-agent-cert/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="APKI">[APKI]</dt>
+        <dd>
+<span class="refAuthor">Sharif, R.</span>, <span class="refTitle">"Agent Public Key Infrastructure (APKI): Certificate-Based Identity and Trust for Autonomous AI Agents"</span>, <time datetime="2026-04-10" class="refDate">10 April 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-sharif-apki-agent-pki/">https://datatracker.ietf.org/doc/draft-sharif-apki-agent-pki/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="AgentIdentity">[AgentIdentity]</dt>
+        <dd>
+<span class="refAuthor">Sharif, R.</span>, <span class="refTitle">"X.509 Certificate Profile for Autonomous AI Agent Identity"</span>, <time datetime="2026-07-31" class="refDate">31 July 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-sharif-x509-agent-identity-profile/">https://datatracker.ietf.org/doc/draft-sharif-x509-agent-identity-profile/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="DAAP">[DAAP]</dt>
+        <dd>
+<span class="refAuthor">Kumar, S.</span>, <span class="refTitle">"Delegated Agent Authorization Protocol (DAAP)"</span>, <time datetime="2026-03-02" class="refDate">2 March 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-mishra-oauth-agent-grants/">https://datatracker.ietf.org/doc/draft-mishra-oauth-agent-grants/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="OpenA2A">[OpenA2A]</dt>
+        <dd>
+<span class="refAuthor">Singla, P.</span>, <span class="refTitle">"Agent Identity Protocol (AIP): Decentralized Identity and Delegation for AI Agents"</span>, <time datetime="2026-04-18" class="refDate">18 April 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-singla-agent-identity-protocol/">https://datatracker.ietf.org/doc/draft-singla-agent-identity-protocol/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="CapabilityBound">[CapabilityBound]</dt>
+      <dd>
+<span class="refAuthor">Zhou, Z.</span>, <span class="refTitle">"Governing Dynamic Capabilities: Cryptographic Binding and Reproducibility Verification for AI Agent Tool Use"</span>, <time datetime="2026-03-19" class="refDate">19 March 2026</time>, <span>&lt;<a href="https://arxiv.org/abs/2603.14332">https://arxiv.org/abs/2603.14332</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-A">
+      <h2 id="name-authors-address">
+<a href="#name-authors-address" class="section-name selfRef">Author's Address</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Jijie Wei</span></div>
+<div dir="auto" class="left"><span class="org">Individual</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:pki@varwof.com" class="email">pki@varwof.com</a>
+</div>
+<div class="url">
+<span>URI:</span>
+<a href="https://varwof.com" class="url">https://varwof.com</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>

@@ -76,5 +76,7 @@ types is the **type foundation layer** of the varwof ecosystem. This project is 
 | Homepage | https://varwof.com |
 | Community | https://varwof.org |
 | IETF Draft | [draft-wei-aic-identity-cert](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/) |
+| AIC X.509 (docs) | [draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md) (also `.xml` / `.txt` / `.html`) |
+| AIC-JWT (docs) | [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`) |
 | License | Apache-2.0 |
 | Member | [Open Invention Network](https://openinventionnetwork.com/) |

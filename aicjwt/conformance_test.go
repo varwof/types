@@ -280,4 +280,72 @@ func TestValidateNegatives(t *testing.T) {
 			t.Fatalf("malformed token must fail")
 		}
 	})
+
+	t.Run("duplicate_header_key", func(t *testing.T) {
+		daTok, da := buildDA(t, env, ModeAuthorized, caps, nil)
+		_, outer := buildOuter(t, env, daTok, da, ModeAuthorized, caps, nil)
+		pb, _ := json.Marshal(outer)
+		// craft a header with duplicate "alg" member names (RFC 8725)
+		hb := []byte(`{"alg":"none","alg":"ES256","typ":"aic+jwt","kid":"issuer-1"}`)
+		tok, err := SignCompact(hb, pb, "ES256", env.issuerKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Validate(tok, freshOpts()); err == nil {
+			t.Fatalf("duplicate header keys must be rejected")
+		}
+	})
+
+	t.Run("duplicate_payload_key", func(t *testing.T) {
+		daTok, da := buildDA(t, env, ModeAuthorized, caps, nil)
+		_, outer := buildOuter(t, env, daTok, da, ModeAuthorized, caps, nil)
+		pb, _ := json.Marshal(outer)
+		// insert a second "sub" member before the original one
+		idx := strings.Index(string(pb), `"sub":`)
+		if idx < 0 {
+			t.Fatal("sub not found")
+		}
+		dup := string(pb[:idx]) + `"sub":"agent:evil",` + string(pb[idx:])
+		hb, _ := json.Marshal(map[string]any{"alg": "ES256", "typ": TypOuter, "kid": "issuer-1"})
+		tok, err := SignCompact(hb, []byte(dup), "ES256", env.issuerKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Validate(tok, freshOpts()); err == nil {
+			t.Fatalf("duplicate payload keys must be rejected")
+		}
+	})
+
+	t.Run("oversized_token", func(t *testing.T) {
+		daTok, da := buildDA(t, env, ModeAuthorized, caps, nil)
+		_, outer := buildOuter(t, env, daTok, da, ModeAuthorized, caps, nil)
+		pb, _ := json.Marshal(outer)
+		var m map[string]any
+		if err := json.Unmarshal(pb, &m); err != nil {
+			t.Fatal(err)
+		}
+		m["padding"] = strings.Repeat("x", MaxTokenSize+1024)
+		big, _ := json.Marshal(m)
+		hb, _ := json.Marshal(map[string]any{"alg": "ES256", "typ": TypOuter, "kid": "issuer-1"})
+		tok, err := SignCompact(hb, big, "ES256", env.issuerKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(tok) <= MaxTokenSize {
+			t.Fatalf("test token should exceed MaxTokenSize")
+		}
+		if _, err := Validate(tok, freshOpts()); err == nil {
+			t.Fatalf("oversized token must be rejected")
+		}
+	})
+
+	t.Run("params_too_large", func(t *testing.T) {
+		bigParams := `{"max_rows":` + strings.Repeat("9", MaxParamsSize) + `}`
+		badCaps := []Capability{{Scheme: "database", ID: "query:SELECT", Params: json.RawMessage(bigParams)}}
+		daTok, da := buildDA(t, env, ModeAuthorized, badCaps, nil)
+		tok, _ := buildOuter(t, env, daTok, da, ModeAuthorized, badCaps, nil)
+		if _, err := Validate(tok, freshOpts()); err == nil {
+			t.Fatalf("params exceeding %d bytes must be rejected", MaxParamsSize)
+		}
+	})
 }

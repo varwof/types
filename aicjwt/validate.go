@@ -16,6 +16,13 @@ const (
 	ConstraintScheme          = "varwof/constraint-v1"
 	MaxLifetime               = 86400
 	AllowedModeRepresentative = "representative_allowed"
+	// MaxTokenSize is the hard upper bound on the serialized token size
+	// (draft Section 13.7). Tokens larger than this are rejected before
+	// parsing to bound CPU/memory cost.
+	MaxTokenSize = 64 * 1024
+	// MaxParamsSize is the maximum serialized size of a capability
+	// params object (draft Section 13.7).
+	MaxParamsSize = 512
 )
 
 // CapabilityPlugin evaluates a request capability for a scheme.  The
@@ -73,10 +80,21 @@ func (o VerifyOptions) withDefaults() VerifyOptions {
 func Validate(token string, opts VerifyOptions) (*Decision, error) {
 	opts = opts.withDefaults()
 
+	// ---- Step 0: size bound ----------------------------------------
+	if len(token) > MaxTokenSize {
+		return nil, fmt.Errorf("step0: token size %d exceeds max %d", len(token), MaxTokenSize)
+	}
+
 	// ---- Step 1: parse + verify the outer JWS ----------------------
 	hb, pb, _, err := ParseCompact(token)
 	if err != nil {
 		return nil, fmt.Errorf("step1: %w", err)
+	}
+	if hasDuplicateJSONKeys(hb) {
+		return nil, fmt.Errorf("step1: outer header contains duplicate JSON member names")
+	}
+	if hasDuplicateJSONKeys(pb) {
+		return nil, fmt.Errorf("step1: outer payload contains duplicate JSON member names")
 	}
 	var hdr Header
 	if err := json.Unmarshal(hb, &hdr); err != nil {
@@ -278,8 +296,18 @@ func checkOuterRequired(o *OuterClaims) error {
 	if len(o.Aic.Capabilities) < 1 || len(o.Aic.Capabilities) > 256 {
 		return fmt.Errorf("aic.capabilities must contain 1..256 entries")
 	}
+	for _, c := range o.Aic.Capabilities {
+		if len(c.Params) > MaxParamsSize {
+			return fmt.Errorf("aic.capabilities params exceed %d bytes", MaxParamsSize)
+		}
+	}
 	if len(o.Aic.Constraints) > 32 {
 		return fmt.Errorf("aic.constraints must not exceed 32 entries")
+	}
+	for _, c := range o.Aic.Constraints {
+		if len(c.Params) > MaxParamsSize {
+			return fmt.Errorf("aic.constraints params exceed %d bytes", MaxParamsSize)
+		}
 	}
 	if len(o.Aic.Extensions) > 32 {
 		return fmt.Errorf("aic.extensions must not exceed 32 entries")
@@ -314,11 +342,21 @@ func checkDARequired(d *DAClaims) error {
 	if len(d.Capabilities) < 1 || len(d.Capabilities) > 256 {
 		return fmt.Errorf("DA capabilities must contain 1..256 entries")
 	}
+	for _, c := range d.Capabilities {
+		if len(c.Params) > MaxParamsSize {
+			return fmt.Errorf("DA capabilities params exceed %d bytes", MaxParamsSize)
+		}
+	}
 	if d.DelegationMode != ModeAuthorized && d.DelegationMode != ModeRepresentative {
 		return fmt.Errorf("DA delegation_mode invalid")
 	}
 	if len(d.Constraints) > 32 {
 		return fmt.Errorf("DA constraints must not exceed 32 entries")
+	}
+	for _, c := range d.Constraints {
+		if len(c.Params) > MaxParamsSize {
+			return fmt.Errorf("DA constraints params exceed %d bytes", MaxParamsSize)
+		}
 	}
 	if d.RequestedLifetime < 1 || d.RequestedLifetime > MaxLifetime {
 		return fmt.Errorf("DA requested_lifetime must be in 1..%d", MaxLifetime)
@@ -336,9 +374,18 @@ func checkDARequired(d *DAClaims) error {
 // claims, signature, principal binding and nonce.  It is used by the
 // validation pipeline and by the authorization server issuance flow.
 func ValidateDA(daToken string, opts VerifyOptions) (*DAClaims, error) {
+	if len(daToken) > MaxTokenSize {
+		return nil, fmt.Errorf("DA token size %d exceeds max %d", len(daToken), MaxTokenSize)
+	}
 	hb, pb, _, err := ParseCompact(daToken)
 	if err != nil {
 		return nil, fmt.Errorf("DA parse: %w", err)
+	}
+	if hasDuplicateJSONKeys(hb) {
+		return nil, fmt.Errorf("DA header contains duplicate JSON member names")
+	}
+	if hasDuplicateJSONKeys(pb) {
+		return nil, fmt.Errorf("DA payload contains duplicate JSON member names")
 	}
 	var hdr Header
 	if err := json.Unmarshal(hb, &hdr); err != nil {
@@ -453,6 +500,16 @@ func checkPA(o *OuterClaims, opts VerifyOptions) error {
 	for _, c := range o.Aic.Capabilities {
 		if !CapabilitySubset(c, pa.Grants) {
 			return fmt.Errorf("capability %s:%s not within P_grants", c.Scheme, c.ID)
+		}
+	}
+	for _, g := range pa.Grants {
+		if len(g.Params) > MaxParamsSize {
+			return fmt.Errorf("PA grants params exceed %d bytes", MaxParamsSize)
+		}
+	}
+	for _, c := range pa.Constraints {
+		if len(c.Params) > MaxParamsSize {
+			return fmt.Errorf("PA constraints params exceed %d bytes", MaxParamsSize)
 		}
 	}
 	if _, err := EvaluateConstraints(pa.Constraints, opts.RequestContext, opts.ConstraintStrict); err != nil {

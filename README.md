@@ -1,28 +1,17 @@
-# Varwof Types
+# varwof-types
 
-Shared type definition library providing AIC, Capability, Principal and other core types for the Varwof PKI suite.
+> Shared type definitions for AIC / Capability / PrincipalUid / DelegationAuthorization in the varwof PKI suite.
 
-## Features
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/varwof/types)](https://pkg.go.dev/github.com/varwof/types)
 
-- Zero external dependencies, pure standard library
-- AIC (Agent Identity Certificate) extension structure and validation
-- Capability definitions with glob pattern matching
-- PrincipalUid principal identifier with SPKI key hash
-- DelegationAuthorization delegation authorization
-- PrincipalAuthorization with delegation policy
-- GatewaySessionExtension for execution constraints
-- Hash algorithm support (SHA-2/SHA-3 family)
-- `aicjwt` subpackage: AIC-JWT (`draft-wei-aic-jwt-00`) claims model,
-  JWS sign/verify, capability matching (draft Section 6.2), constraint
-  evaluation and the 11-step validation pipeline
+[中文](README_CN.md)
 
-## Installation
+## What is varwof-types?
 
-```bash
-go get github.com/varwof/types
-```
+Core shared type definitions for the varwof PKI suite: AIC (Agent Identity Certificate), Capability, PrincipalUid (SPKI key hash), DelegationAuthorization, PrincipalAuthorization, and more. Zero external dependencies. Referenced by core, gateway-core, register, and all other modules.
 
-## Usage
+## Quick Start
 
 ```go
 import pki "github.com/varwof/types"
@@ -35,12 +24,57 @@ err = pki.ValidateAIC(aic)
 
 // Match capability with glob pattern
 matched := pki.MatchCapability("oracle/mysql:query:users", "oracle/*:query:*")
-
-// Validate an AIC-JWT (github.com/varwof/types/aicjwt)
-import aicjwt "github.com/varwof/types/aicjwt"
-dec, err := aicjwt.Validate(token, aicjwt.VerifyOptions{ /* ... */ })
 ```
 
-## License
+## Installation
 
-Apache-2.0
+```bash
+go get github.com/varwof/types@v0.1.0
+```
+
+## Core Types
+
+| Type | Description |
+|------|-------------|
+| `AIC` | Agent Identity Certificate extension structure |
+| `Capability` | Capability declaration (schemeId + capabilityId) |
+| `PrincipalUid` | Principal identifier (SPKI public key hash) |
+| `DelegationAuthorization` | Delegation authorization signature (timestamp + nonce) |
+| `PrincipalAuthorization` | Principal authorization policy |
+| `GatewaySessionExtension` | Gateway session execution constraints |
+| `MatchCapability` | Capability glob pattern matching |
+| `ValidateAIC` | AIC validation |
+
+## Sub-packages
+
+| Package | Description |
+|---------|-------------|
+| `aicjwt` | AIC-JWT (`draft-wei-aic-jwt-00`) claims model, JWS sign/verify, 11-step validation pipeline |
+
+## Ecosystem
+
+```mermaid
+graph TB
+    subgraph varwof["varwof Ecosystem"]
+        core["core<br/>PKI CA"]
+        gw["gateway<br/>TCP/HTTP/UDP"]
+        gwcore["gateway-core<br/>Security Engine"]
+        types["types<br/>Shared Types"]
+        reg["register<br/>Capability Registry"]
+    end
+    core --> types
+    gwcore --> types
+    reg --> types
+```
+
+types is the **type foundation layer** of the varwof ecosystem. This project is a member of the [Open Invention Network](https://openinventionnetwork.com/).
+
+## Links
+
+| | |
+|---|---|
+| Homepage | https://varwof.com |
+| Community | https://varwof.org |
+| IETF Draft | [draft-wei-aic-identity-cert](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/) |
+| License | Apache-2.0 |
+| Member | [Open Invention Network](https://openinventionnetwork.com/) |

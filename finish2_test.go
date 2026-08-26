@@ -242,14 +242,3 @@ func TestMatchCapabilityDoubleStarErrors(t *testing.T) {
 		t.Fatal("empty segment should not match")
 	}
 }
-
-func TestGSCIDRAllowed_InvalidCIDRInList(t *testing.T) {
-	gs := &pki.GatewaySessionExtension{AllowedCIDRs: []string{"not-a-cidr", "10.0.0.0/8"}}
-	if !gs.CIDRAllowed("10.1.1.1") {
-		t.Fatal("valid CIDR after invalid entry should match")
-	}
-	gs2 := &pki.GatewaySessionExtension{AllowedCIDRs: []string{"not-a-cidr"}}
-	if gs2.CIDRAllowed("10.1.1.1") {
-		t.Fatal("only-invalid CIDR list should not match")
-	}
-}

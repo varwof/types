@@ -27,9 +27,6 @@ var (
 	// ── PrincipalAuthorization ──
 	OIDPrincipalAuthorization = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 2}
 
-	// ── Gateway Session ──
-	OIDGatewaySession = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 5}
-
 	// ── Capability Scheme Registry (reserved) ──
 	OIDCapabilitySchemeRegistry = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 3}
 

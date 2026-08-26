@@ -707,13 +707,6 @@ func TestOIDAIC(t *testing.T) {
 	}
 }
 
-func TestOIDGatewaySession(t *testing.T) {
-	expected := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 5}
-	if !pki.OIDGatewaySession.Equal(expected) {
-		t.Fatalf("OIDGatewaySession: expected %v, got %v", expected, pki.OIDGatewaySession)
-	}
-}
-
 // ─── Edge Cases ──────────────────────────────────────────────────
 
 func TestEmptyAIC(t *testing.T) {

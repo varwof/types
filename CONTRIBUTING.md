@@ -50,8 +50,8 @@ Follow the conventional commit style:
 ## Contributor License Agreement
 
 By submitting a pull request, you agree to sign the
-[Individual CLA](https://github.com/varwof/dev-docs/blob/main/CLA-INDIVIDUAL.md)
-(or [Corporate CLA](https://github.com/varwof/dev-docs/blob/main/CLA-CORPORATE.md)
+[Individual CLA](https://github.com/varwof/.github/blob/main/CLA-INDIVIDUAL.md)
+(or [Corporate CLA](https://github.com/varwof/.github/blob/main/CLA-CORPORATE.md)
 for employer-sponsored contributions). The CLA grants the project a
 permissive copyright and patent license for your contributions, while
 you retain ownership of your code.

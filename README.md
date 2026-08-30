@@ -82,3 +82,7 @@ types is the **type foundation layer** of the varwof ecosystem. This project is 
 | AIC-JWT (docs) | [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`) |
 | License | Apache-2.0 |
 | Member | [Open Invention Network](https://openinventionnetwork.com/) |
+
+## Community
+
+Questions, feedback, and port status: [AIC Discussions](https://github.com/varwof/aic-jwt/discussions)

@@ -354,7 +354,6 @@ type ResourceScope struct { ... }     // Resource scope
 | Variable | OID | Description |
 |------|-----|------|
 | `OIDPrincipalAuthorization` | `1.3.6.1.4.1.66257.1.2` | Principal authorization |
-| `OIDGatewaySession` | `1.3.6.1.4.1.66257.1.5` | Gateway session (legacy) |
 | `OIDCapabilitySchemeRegistry` | `1.3.6.1.4.1.66257.1.3` | Capability scheme registry (reserved) |
 | `OIDVendorExtensionRegistry` | `1.3.6.1.4.1.66257.1.4` | Vendor extension registry (reserved) |
 | `OIDRenewalToken` | `1.3.6.1.4.1.66257.1.6` | Renewal token |

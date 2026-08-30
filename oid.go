@@ -27,12 +27,6 @@ var (
 	// ── PrincipalAuthorization ──
 	OIDPrincipalAuthorization = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 2}
 
-	// ── Capability Scheme Registry (reserved) ──
-	OIDCapabilitySchemeRegistry = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 3}
-
-	// ── Vendor Extension Registry (reserved) ──
-	OIDVendorExtensionRegistry = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 4}
-
 	// ── RenewalToken ──
 	OIDRenewalToken = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 66257, 1, 6}
 

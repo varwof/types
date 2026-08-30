@@ -440,10 +440,8 @@ func ValidatePrincipalUidKeyHash(pu PrincipalUid) error {
 
 func isKnownExtension(oid asn1.ObjectIdentifier) bool {
 	known := []asn1.ObjectIdentifier{
-		{1, 3, 6, 1, 4, 1, 66257, 1, 1, 1}, // AgentIdentity
-		{1, 3, 6, 1, 4, 1, 66257, 1, 1, 2}, // DelegationAuthorization
-		{1, 3, 6, 1, 4, 1, 66257, 1, 2},    // PrincipalAuthorization
-		{1, 3, 6, 1, 4, 1, 66257, 3, 1},    // MarketAccessId
+		{1, 3, 6, 1, 4, 1, 66257, 1, 2}, // PrincipalAuthorization
+		{1, 3, 6, 1, 4, 1, 66257, 3, 1}, // MarketAccessId
 	}
 	for _, k := range known {
 		if oid.Equal(k) {

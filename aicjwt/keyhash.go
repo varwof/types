@@ -15,14 +15,20 @@ import (
 	"strings"
 )
 
-// JWK is a minimal RFC 7517 public JWK supporting EC, RSA and OKP.
+// JWK is an RFC 7517 public JWK supporting EC, RSA and OKP (kty/crv/x/y/n/e),
+// plus the key-set metadata members kid/use/x5c/x5t used to bind a JWK to an
+// X.509 certificate chain (draft Section 5).
 type JWK struct {
-	Kty string `json:"kty"`
-	Crv string `json:"crv,omitempty"`
-	X   string `json:"x,omitempty"`
-	Y   string `json:"y,omitempty"`
-	N   string `json:"n,omitempty"`
-	E   string `json:"e,omitempty"`
+	Kty string   `json:"kty"`
+	Crv string   `json:"crv,omitempty"`
+	X   string   `json:"x,omitempty"`
+	Y   string   `json:"y,omitempty"`
+	N   string   `json:"n,omitempty"`
+	E   string   `json:"e,omitempty"`
+	Kid string   `json:"kid,omitempty"`
+	Use string   `json:"use,omitempty"`
+	X5c []string `json:"x5c,omitempty"`
+	X5t string   `json:"x5t,omitempty"`
 }
 
 // SupportedHashAlgs lists the hash_alg values implemented here.

@@ -179,7 +179,7 @@ func TestCheckPA(t *testing.T) {
 				Ver:            1,
 				Principal:      principalBinding(t, env.principalKey),
 				DelegationMode: ModeRepresentative,
-				Capabilities:   []Capability{{Scheme: "database", ID: "query:SELECT"}},
+				Capabilities:   []Capability{{Scheme: "database", ID: "query:SELECT", Params: json.RawMessage(`{"max_rows":100}`)}},
 			},
 		}
 	}

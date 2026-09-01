@@ -471,6 +471,40 @@ func TestValidateAIC_Valid(t *testing.T) {
 	}
 }
 
+// L4: constraint parameters must be a JSON object/array; a bare scalar body
+// (`123`, `true`, `"x"`, `null`) must be rejected even though json.Valid
+// accepts it.
+func TestValidateAIC_ConstraintParamScalarRejectedL4(t *testing.T) {
+	base := func() *pki.AIC {
+		return &pki.AIC{
+			AgentId:      "test",
+			PrincipalUid: pki.PrincipalUid{Version: 1, Realm: "varwof", Identifier: "alice", KeyHash: make([]byte, 32)},
+			Capabilities: []pki.Capability{{SchemeId: "http", CapabilityId: "gateway:admin"}},
+			DelegationAuthorization: pki.DelegationAuthorization{
+				Reason:         pki.Reason{ReasonCode: "SCHEDULED_MAINTENANCE", Description: "valid test"},
+				Nonce:          make([]byte, 32),
+				Timestamp:      time.Date(2026, 7, 29, 10, 0, 0, 0, time.UTC),
+				SignatureValue: []byte{1},
+			},
+		}
+	}
+
+	for _, bad := range [][]byte{[]byte("123"), []byte("true"), []byte(`"x"`), []byte("null")} {
+		aic := base()
+		aic.AuthorizationConstraints = []pki.Capability{{SchemeId: "constraint", CapabilityId: "gateway:admin", Parameters: bad}}
+		if err := pki.ValidateAIC(aic); err == nil {
+			t.Errorf("constraint params %s should be rejected", bad)
+		}
+	}
+
+	// A JSON array is structurally valid for array-shaped constraints.
+	okA := base()
+	okA.AuthorizationConstraints = []pki.Capability{{SchemeId: "constraint", CapabilityId: "gateway:admin", Parameters: []byte(`[{"min":1024}]`)}}
+	if err := pki.ValidateAIC(okA); err != nil {
+		t.Fatalf("array constraint params should pass: %v", err)
+	}
+}
+
 func TestValidateAIC_MissingDA(t *testing.T) {
 	aic := &pki.AIC{
 		AgentId:      "test",

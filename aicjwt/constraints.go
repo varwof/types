@@ -1,10 +1,18 @@
 package aicjwt
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/netip"
 	"time"
+)
+
+// MaxConcurrentMin/MaxConcurrentMax bound the max-concurrent constraint's
+// "max" parameter (aligned with the X.509 path in pki-types, spec P1-A-29).
+const (
+	MaxConcurrentMin = 1
+	MaxConcurrentMax = 1024
 )
 
 // RequestContext carries deployment-side inputs for constraint
@@ -47,14 +55,23 @@ func evalAllowedCIDR(c Capability, ctx RequestContext) error {
 }
 
 func evalMaxConcurrent(c Capability, ctx RequestContext) error {
+	// L3: require params to be a plain JSON object with only the "max" member
+	// (no unknown fields) and reject a scalar/array/string body.
+	t := bytes.TrimSpace(c.Params)
+	if len(t) == 0 || t[0] != '{' {
+		return fmt.Errorf("max-concurrent: params must be a JSON object {\"max\": N}")
+	}
+	dec := json.NewDecoder(bytes.NewReader(c.Params))
+	dec.UseNumber()
 	var p struct {
 		Max int `json:"max"`
 	}
-	if err := json.Unmarshal(c.Params, &p); err != nil {
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&p); err != nil {
 		return fmt.Errorf("max-concurrent: params must be {\"max\": N}: %w", err)
 	}
-	if p.Max < 1 {
-		return fmt.Errorf("max-concurrent: max must be >= 1")
+	if p.Max < MaxConcurrentMin || p.Max > MaxConcurrentMax {
+		return fmt.Errorf("max-concurrent: max %d must be in %d..%d", p.Max, MaxConcurrentMin, MaxConcurrentMax)
 	}
 	if ctx.ConcurrentCount >= p.Max {
 		return fmt.Errorf("max-concurrent: concurrent count %d exceeds max %d", ctx.ConcurrentCount, p.Max)

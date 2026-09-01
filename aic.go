@@ -398,8 +398,12 @@ func ValidateAIC(aic *AIC) error {
 		if len(c.Parameters) > MaxConstraintParams {
 			return fmt.Errorf("aic: authorizationConstraints[%d].parameters length %d: must be 0-%d", i, len(c.Parameters), MaxConstraintParams)
 		}
-		if len(c.Parameters) > 0 && !json.Valid(c.Parameters) {
-			return fmt.Errorf("aic: authorizationConstraints[%d].parameters: invalid JSON", i)
+		// L4: constraint params must be a non-empty JSON object or array
+		// container. Bare scalars (`123`, `true`, `"x"`, `null`) are rejected:
+		// `json.Valid` alone accepts them, which lets malformed scalar values
+		// pass as constraint parameters.
+		if len(c.Parameters) > 0 && !isJSONContainer(c.Parameters) {
+			return fmt.Errorf("aic: authorizationConstraints[%d].parameters: must be a JSON object or array", i)
 		}
 		// V17: max-concurrent constraint parameters must be {"max": N} with N in 1..1024 (spec P1-A-29).
 		if c.CapabilityId == ConstraintConcurrentKey && len(c.Parameters) > 0 {
@@ -436,6 +440,19 @@ func ValidatePrincipalUidKeyHash(pu PrincipalUid) error {
 		return fmt.Errorf("aic: principalUid.keyHash length %d: must be %d (%s)", len(pu.KeyHash), want, name)
 	}
 	return nil
+}
+
+// isJSONContainer reports whether raw is a non-empty JSON object or array
+// (after trimming). Bare scalars (`123`, `true`, `"x"`, `null`) return false.
+func isJSONContainer(raw []byte) bool {
+	t := bytes.TrimSpace(raw)
+	if len(t) == 0 {
+		return false
+	}
+	if !json.Valid(t) {
+		return false
+	}
+	return t[0] == '{' || t[0] == '['
 }
 
 func isKnownExtension(oid asn1.ObjectIdentifier) bool {

@@ -374,6 +374,7 @@ func checkDARequired(d *DAClaims) error {
 // claims, signature, principal binding and nonce.  It is used by the
 // validation pipeline and by the authorization server issuance flow.
 func ValidateDA(daToken string, opts VerifyOptions) (*DAClaims, error) {
+	opts = opts.withDefaults()
 	if len(daToken) > MaxTokenSize {
 		return nil, fmt.Errorf("DA token size %d exceeds max %d", len(daToken), MaxTokenSize)
 	}
@@ -400,6 +401,12 @@ func ValidateDA(daToken string, opts VerifyOptions) (*DAClaims, error) {
 	}
 	if err := checkDARequired(&da); err != nil {
 		return nil, err
+	}
+	// L6: enforce DA freshness. A DA whose timestamp is older than its
+	// requested lifetime is stale and must not be accepted, even with an
+	// unused nonce (replay of a long-superseded authorization).
+	if opts.Now.Sub(time.Unix(da.TS, 0)) > time.Duration(da.RequestedLifetime)*time.Second {
+		return nil, fmt.Errorf("DA ts %d is stale (beyond requested_lifetime %d)", da.TS, da.RequestedLifetime)
 	}
 	pub, err := resolvePrincipalKey(da.Principal, hdr.Kid, opts)
 	if err != nil {

@@ -75,6 +75,10 @@ func ValidatePrincipalAuthorization(pa *PrincipalAuthorization) error {
 		if len(c.Parameters) > MaxConstraintParams {
 			return fmt.Errorf("principal_authorization: authorizationConstraints[%d].parameters length %d: must be 0-%d", i, len(c.Parameters), MaxConstraintParams)
 		}
+		// L4: constraint params must be a non-empty JSON object or array container.
+		if len(c.Parameters) > 0 && !isJSONContainer(c.Parameters) {
+			return fmt.Errorf("principal_authorization: authorizationConstraints[%d].parameters: must be a JSON object or array", i)
+		}
 	}
 	if pa.DelegationPolicy.AllowedMode < 0 || pa.DelegationPolicy.AllowedMode > 1 {
 		return fmt.Errorf("principal_authorization: delegationPolicy.allowedMode %d: must be 0-1", pa.DelegationPolicy.AllowedMode)

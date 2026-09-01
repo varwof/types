@@ -63,36 +63,44 @@ func tokenize(segs []string) []string {
 }
 
 func matchTokens(p, t []string) bool {
+	return matchTokensMemo(p, t, make(map[[2]int]bool))
+}
+
+// matchTokensMemo is matchTokens with memoization keyed on the remaining
+// pattern/target lengths.  Because recursion only ever consumes prefix slices,
+// the outcome for a given (len(p), len(t)) is deterministic, so memoization
+// bounds the worst case to O(len(p)*len(t)) states (L5: prevents exponential
+// blow-up from multiple '**' patterns).
+func matchTokensMemo(p, t []string, memo map[[2]int]bool) bool {
+	key := [2]int{len(p), len(t)}
 	if len(p) == 0 {
 		return len(t) == 0
 	}
+	if v, ok := memo[key]; ok {
+		return v
+	}
+	var res bool
 	switch p[0] {
 	case "**":
-		if len(t) == 0 {
-			return false
-		}
-		for i := 1; i <= len(t); i++ {
-			if matchTokens(p[1:], t[i:]) {
-				return true
+		if len(t) != 0 {
+			for i := 1; i <= len(t); i++ {
+				if matchTokensMemo(p[1:], t[i:], memo) {
+					res = true
+					break
+				}
 			}
 		}
-		return false
 	case "*":
-		if len(t) == 0 || t[0] == "/" || t[0] == ":" {
-			return false
-		}
-		return matchTokens(p[1:], t[1:])
+		res = len(t) != 0 && t[0] != "/" && t[0] != ":" && matchTokensMemo(p[1:], t[1:], memo)
 	default:
-		if len(t) == 0 {
-			return false
+		if len(t) != 0 {
+			// Literal tokens may carry {a,b} alternation, [a-z] character
+			// classes, or an embedded '*' (07-capability).
+			res = matchToken(p[0], t[0]) && matchTokensMemo(p[1:], t[1:], memo)
 		}
-		// Literal tokens may carry {a,b} alternation, [a-z] character
-		// classes, or an embedded '*' (07-capability).
-		if !matchToken(p[0], t[0]) {
-			return false
-		}
-		return matchTokens(p[1:], t[1:])
 	}
+	memo[key] = res
+	return res
 }
 
 // matchToken matches a single token against a segment pattern that may
@@ -237,10 +245,8 @@ func MatchCapabilities(allowed []Capability, req Capability) bool {
 // be equal; arrays must be subsets.  Scheme-specific plugins may
 // supply stricter comparators.
 func ParamsWithinGrant(grant, agent json.RawMessage) (bool, error) {
+	// An empty grant (or explicit null) means the grant is unconstrained.
 	if len(grant) == 0 || string(grant) == "null" {
-		return true, nil
-	}
-	if len(agent) == 0 || string(agent) == "null" {
 		return true, nil
 	}
 	gv, err := decodeNumber(grant)
@@ -249,7 +255,10 @@ func ParamsWithinGrant(grant, agent json.RawMessage) (bool, error) {
 	}
 	av, err := decodeNumber(agent)
 	if err != nil {
-		return false, err
+		// The grant carries required bounds but the agent supplied absent,
+		// empty, or malformed params (e.g. omitted entirely or {}); this is a
+		// required-key omission and MUST NOT be treated as "within" (L1).
+		return false, nil
 	}
 	return paramsWithin(gv, av), nil
 }
@@ -261,12 +270,21 @@ func paramsWithin(grant, agent any) bool {
 		if !ok {
 			return false
 		}
+		// Reject an agent that adds keys the grant never granted.
 		for k, av := range a {
 			gv, ok := g[k]
 			if !ok {
 				return false
 			}
 			if !paramsWithin(gv, av) {
+				return false
+			}
+		}
+		// L1: every key the grant requires MUST be present in the agent.
+		// Omitting a bound/required parameter (e.g. {"max":5} -> {}) is an
+		// authorization escape and must be rejected.
+		for k := range g {
+			if _, ok := a[k]; !ok {
 				return false
 			}
 		}

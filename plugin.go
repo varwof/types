@@ -32,6 +32,11 @@ type HTTPFacts struct {
 	Path    string
 	Query   map[string][]string
 	Headers map[string]string
+	// Body is a bounded copy of the request body, populated by HTTP-facing
+	// gateways so capability plugins can evaluate the operation payload
+	// (e.g. a structured query or SQL in a POST body). The gateway restores
+	// the body before proxying upstream. Nil means "not provided".
+	Body []byte
 }
 
 // PluginContext is the context during plugin execution.
@@ -51,6 +56,8 @@ type PluginContext struct {
 	Path    string
 	Query   map[string][]string
 	Headers map[string]string
+	// Body is a bounded copy of the request body (see HTTPFacts.Body).
+	Body []byte
 }
 
 // CapabilityPlugin is the interface for all capability plugins.

@@ -331,6 +331,11 @@ func ValidateAIC(aic *AIC) error {
 		if len(cap.Parameters) > MaxCapParams {
 			return fmt.Errorf("aic: capability[%d].parameters length %d: must be 0-%d", i, len(cap.Parameters), MaxCapParams)
 		}
+		// P0-2: capability parameters must be a JSON object/array container;
+		// bare scalars are rejected (same rule as constraints).
+		if len(cap.Parameters) > 0 && !isJSONContainer(cap.Parameters) {
+			return fmt.Errorf("aic: capability[%d].parameters must be a JSON object or array", i)
+		}
 		// V15: capabilities MUST NOT use the constraint scheme.
 		if cap.SchemeId == "varwof/constraint-v1" {
 			return fmt.Errorf("aic: capability[%d].schemeId %q: constraint scheme forbidden in capabilities", i, cap.SchemeId)

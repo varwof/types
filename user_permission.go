@@ -61,6 +61,10 @@ func ValidatePrincipalAuthorization(pa *PrincipalAuthorization) error {
 		if len(g.Parameters) > MaxCapParams {
 			return fmt.Errorf("principal_authorization: grant[%d].parameters length %d: must be 0-%d", i, len(g.Parameters), MaxCapParams)
 		}
+		// P0-2: grant parameters must be a JSON object/array container.
+		if len(g.Parameters) > 0 && !isJSONContainer(g.Parameters) {
+			return fmt.Errorf("principal_authorization: grant[%d].parameters must be a JSON object or array", i)
+		}
 	}
 	if len(pa.AuthorizationConstraints) > MaxAuthorizationConstraints {
 		return fmt.Errorf("principal_authorization: authorizationConstraints count %d exceeds max %d", len(pa.AuthorizationConstraints), MaxAuthorizationConstraints)

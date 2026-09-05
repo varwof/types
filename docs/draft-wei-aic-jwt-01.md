@@ -499,7 +499,7 @@ claims `iss`, `sub`, `aud`, `exp` and `jti`:
 
 ```
 {
-  "ver": 1,
+  "ver": 2,
   "iss": "corp.com:zhangsan",
   "sub": "corp.com:zhangsan",
   "aud": "https://as.example.com",
@@ -521,9 +521,9 @@ claims `iss`, `sub`, `aud`, `exp` and `jti`:
 }
 ```
 
-* `ver` (REQUIRED): 1.  The `ver=1` claim set is that defined by this
-  revision (-01); readers of earlier revisions MUST NOT assume the -00
-  payload shape.
+* `ver` (REQUIRED): 2.  `ver=2` is the DA claim set defined by this
+  revision (-01); `ver=1` is the -00 claim set and MUST be rejected by
+  -01 implementations (fail closed rather than silently downgraded).
 * `iss` (REQUIRED): the principal identifier `realm:id`; MUST equal
   the realm and id of the `principal` binding (RFC 7523 issuer).
 * `sub` (REQUIRED): mode-dependent grant subject.  In `authorized`
@@ -1126,7 +1126,7 @@ Payload:
 
 ```
 {
-  "ver": 1,
+  "ver": 2,
   "iss": "corp.com:zhangsan",
   "sub": "corp.com:zhangsan",
   "aud": "https://ca.example.com/aic",
@@ -1534,6 +1534,8 @@ draft-wei-aic-jwt-01 (2026-09-05):
   keeps authorized-mode AIC semantics (agent as `sub`, principal in
   `aic.principal`); a representative-mode token is rejected as an
   `actor_token`; operator binding remains future work.
+* DA `ver` bumped to 2 for the -01 claim set; `ver=1` is the -00 shape
+  and is rejected, making the schema break explicit.
 * Reference implementations (Go and TypeScript/WebCrypto) updated with
   regression tests for the claims and role model above.
 * RFC 7523 conformance completion: jwt-bearer grant is the primary

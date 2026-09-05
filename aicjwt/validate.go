@@ -338,8 +338,8 @@ func checkTime(o *OuterClaims, now time.Time) error {
 }
 
 func checkDARequired(d *DAClaims) error {
-	if d.Ver != 1 {
-		return fmt.Errorf("DA ver must be 1")
+	if d.Ver != 2 {
+		return fmt.Errorf("DA ver must be 2")
 	}
 	if d.Iss == "" || len(d.Iss) > 256 {
 		return fmt.Errorf("DA iss required, 1..256 chars")

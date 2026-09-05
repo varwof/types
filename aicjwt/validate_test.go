@@ -142,7 +142,7 @@ func TestCheckDARequired(t *testing.T) {
 		mut  func(*DAClaims)
 		want string
 	}{
-		{"ver", func(d *DAClaims) { d.Ver = 2 }, "DA ver"},
+		{"ver", func(d *DAClaims) { d.Ver = 1 }, "DA ver"},
 		{"agent_id empty", func(d *DAClaims) { d.AgentID = "" }, "agent_id"},
 		{"agent_id too long", func(d *DAClaims) { d.AgentID = strings.Repeat("x", 257) }, "agent_id"},
 		{"principal missing", func(d *DAClaims) { d.Principal = Principal{} }, "principal"},

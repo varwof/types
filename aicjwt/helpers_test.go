@@ -95,7 +95,7 @@ func buildDA(t *testing.T, env *testEnv, mode string, caps []Capability, mut fun
 	}
 	p := principalBinding(t, env.principalKey)
 	da := &DAClaims{
-		Ver:               1,
+		Ver:               2,
 		Iss:               p.SubjectID(),
 		Aud:               Audience{"https://as.example.com"},
 		AgentID:           "agent:db-analyst-01",

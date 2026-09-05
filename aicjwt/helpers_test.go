@@ -93,10 +93,13 @@ func buildDA(t *testing.T, env *testEnv, mode string, caps []Capability, mut fun
 	if _, err := rand.Read(nonce); err != nil {
 		t.Fatal(err)
 	}
+	p := principalBinding(t, env.principalKey)
 	da := &DAClaims{
 		Ver:               1,
+		Iss:               p.SubjectID(),
+		Aud:               Audience{"https://as.example.com"},
 		AgentID:           "agent:db-analyst-01",
-		Principal:         principalBinding(t, env.principalKey),
+		Principal:         p,
 		Reason:            Reason{Code: "DATA_ANALYSIS", Desc: "scheduled analysis"},
 		Capabilities:      caps,
 		DelegationMode:    mode,
@@ -104,6 +107,14 @@ func buildDA(t *testing.T, env *testEnv, mode string, caps []Capability, mut fun
 		TS:                env.now.Unix(),
 		Nonce:             b64uEncode(nonce),
 	}
+	if mode == ModeRepresentative {
+		da.Sub = p.SubjectID()
+	} else {
+		da.Sub = da.AgentID
+	}
+	da.Exp = da.TS + int64(da.RequestedLifetime)
+	da.Iat = da.TS
+	da.Jti = da.Nonce
 	if mut != nil {
 		mut(da)
 	}
@@ -124,9 +135,14 @@ func buildOuter(t *testing.T, env *testEnv, daToken string, da *DAClaims, mode s
 	if da != nil {
 		jti = da.Nonce
 	}
+	sub := "agent:db-analyst-01"
+	rep := da != nil && da.DelegationMode == ModeRepresentative
+	if rep {
+		sub = da.Principal.SubjectID()
+	}
 	outer := &OuterClaims{
 		Iss: "https://as.example.com",
-		Sub: "agent:db-analyst-01",
+		Sub: sub,
 		Aud: Audience{"https://rs.example.com"},
 		Iat: env.now.Unix(),
 		Exp: env.now.Add(3600 * time.Second).Unix(),
@@ -139,6 +155,9 @@ func buildOuter(t *testing.T, env *testEnv, daToken string, da *DAClaims, mode s
 			Capabilities:   caps,
 		},
 		Da: daToken,
+	}
+	if rep {
+		outer.Act = &Actor{Sub: da.AgentID}
 	}
 	if mut != nil {
 		mut(outer)

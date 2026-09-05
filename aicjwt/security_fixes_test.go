@@ -79,8 +79,12 @@ func TestEvalMaxConcurrentBoundsL3(t *testing.T) {
 func TestValidateDARejectsStaleL6(t *testing.T) {
 	env := newTestEnv(t)
 	tok, _ := buildDA(t, env, ModeAuthorized, []Capability{{Scheme: "database", ID: "query:SELECT"}}, func(d *DAClaims) {
-		// Timestamp 2h in the past, RequestedLifetime stays 3600s.
+		// Timestamp 2h in the past, RequestedLifetime stays 3600s.  With the
+		// canonical exp = ts + requested_lifetime this DA is expired and must
+		// be rejected even when the nonce is fresh.
 		d.TS = time.Now().Add(-2 * time.Hour).Unix()
+		d.Iat = d.TS
+		d.Exp = d.TS + int64(d.RequestedLifetime)
 	})
 	_, err := ValidateDA(tok, VerifyOptions{
 		PrincipalJWKS: map[string]crypto.PublicKey{"principal-1": &env.principalKey.PublicKey},
@@ -89,8 +93,8 @@ func TestValidateDARejectsStaleL6(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected stale DA rejection")
 	}
-	if !strings.Contains(err.Error(), "stale") {
-		t.Fatalf("expected stale error, got: %v", err)
+	if !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("expected expired/stale error, got: %v", err)
 	}
 }
 

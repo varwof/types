@@ -64,6 +64,7 @@ type VerifyOptions struct {
 type Decision struct {
 	Permit       bool
 	Actor        string // audit actor (draft Section 8.1)
+	Executor     string // executing agent: outer.act.sub in representative mode, outer sub otherwise
 	Principal    string // audit principal identifier
 	Capabilities []Capability
 	Notes        []string
@@ -220,12 +221,17 @@ func Validate(token string, opts VerifyOptions) (*Decision, error) {
 
 	// ---- Decision ----------------------------------------------------
 	actor := outer.Sub
+	executor := outer.Sub
 	if outer.Aic.DelegationMode == ModeRepresentative {
 		actor = outer.Aic.Principal.ID
+		if outer.Act != nil {
+			executor = outer.Act.Sub
+		}
 	}
 	return &Decision{
 		Permit:       true,
 		Actor:        actor,
+		Executor:     executor,
 		Principal:    outer.Aic.Principal.ID,
 		Capabilities: outer.Aic.Capabilities,
 		Notes:        notes,
@@ -263,6 +269,11 @@ func checkOuterRequired(o *OuterClaims) error {
 	}
 	if len(o.Aud) == 0 {
 		return fmt.Errorf("aud required")
+	}
+	for _, a := range o.Aud {
+		if a == "" {
+			return fmt.Errorf("aud must not contain empty strings")
+		}
 	}
 	if o.Iat == 0 || o.Exp == 0 || o.Exp <= o.Iat {
 		return fmt.Errorf("iat/exp required and exp must be after iat")
@@ -330,6 +341,26 @@ func checkDARequired(d *DAClaims) error {
 	if d.Ver != 1 {
 		return fmt.Errorf("DA ver must be 1")
 	}
+	if d.Iss == "" || len(d.Iss) > 256 {
+		return fmt.Errorf("DA iss required, 1..256 chars")
+	}
+	if d.Sub == "" || len(d.Sub) > 256 {
+		return fmt.Errorf("DA sub required, 1..256 chars")
+	}
+	if len(d.Aud) == 0 {
+		return fmt.Errorf("DA aud required")
+	}
+	for _, a := range d.Aud {
+		if a == "" {
+			return fmt.Errorf("DA aud must not contain empty strings")
+		}
+	}
+	if d.Exp == 0 {
+		return fmt.Errorf("DA exp required")
+	}
+	if d.Jti == "" || len(d.Jti) > 128 {
+		return fmt.Errorf("DA jti required, 1..128 chars")
+	}
 	if d.AgentID == "" || len(d.AgentID) > 256 {
 		return fmt.Errorf("DA agent_id required, 1..256 chars")
 	}
@@ -367,6 +398,12 @@ func checkDARequired(d *DAClaims) error {
 	if d.Nonce == "" {
 		return fmt.Errorf("DA nonce required")
 	}
+	if d.Jti != d.Nonce {
+		return fmt.Errorf("DA jti must equal nonce")
+	}
+	if d.Iat != 0 && d.Iat != d.TS {
+		return fmt.Errorf("DA iat must equal ts when present")
+	}
 	return nil
 }
 
@@ -401,6 +438,26 @@ func ValidateDA(daToken string, opts VerifyOptions) (*DAClaims, error) {
 	}
 	if err := checkDARequired(&da); err != nil {
 		return nil, err
+	}
+	expectedExp := da.TS + int64(da.RequestedLifetime)
+	if da.Exp != expectedExp {
+		return nil, fmt.Errorf("DA exp %d must equal ts+requested_lifetime %d", da.Exp, expectedExp)
+	}
+	if opts.Now.Unix() > da.Exp {
+		return nil, fmt.Errorf("DA expired (exp %d)", da.Exp)
+	}
+	if da.Iss != da.Principal.SubjectID() {
+		return nil, fmt.Errorf("DA iss %q != principal %q", da.Iss, da.Principal.SubjectID())
+	}
+	switch da.DelegationMode {
+	case ModeAuthorized:
+		if da.Sub != da.AgentID {
+			return nil, fmt.Errorf("authorized mode: DA sub %q must be the agent %q", da.Sub, da.AgentID)
+		}
+	case ModeRepresentative:
+		if da.Sub != da.Principal.SubjectID() {
+			return nil, fmt.Errorf("representative mode: DA sub %q must be the resource owner %q", da.Sub, da.Principal.SubjectID())
+		}
 	}
 	// L6: enforce DA freshness. A DA whose timestamp is older than its
 	// requested lifetime is stale and must not be accepted, even with an
@@ -446,6 +503,12 @@ func validateDA(outer *OuterClaims, opts VerifyOptions) (*DAClaims, error) {
 	if opts.RequireJtiNonceMatch && outer.Jti != da.Nonce {
 		return nil, fmt.Errorf("outer jti does not match DA nonce")
 	}
+	if outer.Exp > da.Exp {
+		return nil, fmt.Errorf("outer exp %d exceeds DA exp %d", outer.Exp, da.Exp)
+	}
+	if !da.Aud.Contains(outer.Iss) {
+		return nil, fmt.Errorf("DA aud %v does not include outer iss %q", da.Aud, outer.Iss)
+	}
 	if outer.Exp-outer.Iat > int64(da.RequestedLifetime) {
 		return nil, fmt.Errorf("token lifetime %d exceeds DA requested_lifetime %d", outer.Exp-outer.Iat, da.RequestedLifetime)
 	}
@@ -472,8 +535,23 @@ func resolvePrincipalKey(p Principal, kid string, opts VerifyOptions) (crypto.Pu
 }
 
 func checkConsistency(o *OuterClaims, da *DAClaims) error {
-	if da.AgentID != o.Sub {
-		return fmt.Errorf("DA agent_id %q != outer sub %q", da.AgentID, o.Sub)
+	switch da.DelegationMode {
+	case ModeRepresentative:
+		if o.Sub != da.Sub || o.Sub != da.Principal.SubjectID() {
+			return fmt.Errorf("representative mode: outer sub %q must be the resource owner %q", o.Sub, da.Sub)
+		}
+		if o.Act == nil || o.Act.Sub != da.AgentID {
+			return fmt.Errorf("representative mode: outer act must carry the agent %q", da.AgentID)
+		}
+	case ModeAuthorized:
+		if da.AgentID != o.Sub {
+			return fmt.Errorf("DA agent_id %q != outer sub %q", da.AgentID, o.Sub)
+		}
+		if o.Act != nil {
+			return fmt.Errorf("authorized mode: outer act must be absent")
+		}
+	default:
+		return fmt.Errorf("DA delegation_mode invalid")
 	}
 	if ok, _ := jsonEqual(da.Principal, o.Aic.Principal); !ok {
 		return fmt.Errorf("DA principal != outer aic.principal")

@@ -107,6 +107,14 @@ type OuterClaims struct {
 	Aic          *AICClaims      `json:"aic"`
 	Da           string          `json:"da,omitempty"`
 	AuthzDetails json.RawMessage `json:"authorization_details,omitempty"`
+	Act          *Actor          `json:"act,omitempty"`
+}
+
+// Actor is the RFC 8693 actor member carried on tokens issued in
+// representative mode: the resource owner is the token subject and the
+// agent is the actor.
+type Actor struct {
+	Sub string `json:"sub"`
 }
 
 // Reason is the delegation reason (draft Section 5.2).
@@ -116,9 +124,16 @@ type Reason struct {
 }
 
 // DAClaims is the inner DA JWT payload, the JSON equivalent of
-// DelegationAuthTBS (draft Section 5.2). All ten members are required.
+// DelegationAuthTBS (draft Section 5.2). Every member below is
+// required.
 type DAClaims struct {
 	Ver               int          `json:"ver"`
+	Iss               string       `json:"iss"`           // principal identifier (RFC 7523 issuer)
+	Sub               string       `json:"sub"`           // mode-dependent grant subject (RFC 7523)
+	Aud               Audience     `json:"aud"`           // intended authorization server (RFC 7523)
+	Exp               int64        `json:"exp"`           // ts + requested_lifetime (RFC 7523 expiry)
+	Iat               int64        `json:"iat,omitempty"` // equals ts when present
+	Jti               string       `json:"jti"`           // equals nonce; replay identifier
 	AgentID           string       `json:"agent_id"`
 	Principal         Principal    `json:"principal"`
 	Reason            Reason       `json:"reason"`
@@ -128,6 +143,24 @@ type DAClaims struct {
 	RequestedLifetime int          `json:"requested_lifetime"`
 	TS                int64        `json:"ts"`
 	Nonce             string       `json:"nonce"`
+}
+
+// SubjectID returns the canonical realm-qualified principal identifier
+// used as the DA issuer and, in representative mode, as the DA and
+// outer-token subject.
+func (p Principal) SubjectID() string {
+	return p.Realm + ":" + p.ID
+}
+
+// OAuthSubject resolves the RFC 7523 grant subject for the DA's
+// delegation mode.  In representative mode the subject is the resource
+// owner / principal; in authorized mode the agent is the authorized
+// accessor (RFC 7523 Section 3, item 2A).
+func (d *DAClaims) OAuthSubject() string {
+	if d.DelegationMode == ModeRepresentative {
+		return d.Principal.SubjectID()
+	}
+	return d.AgentID
 }
 
 // DelegationPolicy is the JSON equivalent of the ASN.1

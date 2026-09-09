@@ -47,6 +47,14 @@ const (
 	MaxConcurrentMax = 1024
 	// ConstraintConcurrentKey is the capabilityId for the max-concurrent constraint.
 	ConstraintConcurrentKey = "max-concurrent"
+
+	// DAVersion1 is the DA (DelegationAuthTBS) version 1 — the legacy DER with
+	// no AgentKeyBinding and an omitted/1 version field.
+	DAVersion1 = 1
+	// DAVersion2 is the DA (DelegationAuthTBS) version 2 — an explicit version
+	// 2 with a trailing [1] EXPLICIT AgentKeyBinding binding the DA to the
+	// agent's SPKI (agent keyhash). This is the default for newly issued DAs.
+	DAVersion2 = 2
 )
 
 // AlgorithmIdentifier is ASN.1 algorithm identifier.
@@ -141,18 +149,127 @@ type AIC struct {
 
 // DelegationAuthTBS is the to-be-signed data for DelegationAuthorization signature (v1.7.1).
 // Field order: version → agentId → principalUid → reason → capabilities → delegationMode →
-// authorizationConstraints → requestedLifetime → timestamp → nonce.
+// authorizationConstraints → requestedLifetime → timestamp → nonce → agentKeyBinding [1].
+//
+// agentKeyBinding ([1] EXPLICIT, DA version 2) binds the DA to the agent's SPKI
+// keyhash, closing the "swap in a different agent key under the same DA" attack.
+// Requirement matrix:
+//   - version 1 (default) → agentKeyBinding MUST be absent;
+//   - version 2 → agentKeyBinding MUST be present and valid;
+//   - any other version → rejected.
 type DelegationAuthTBS struct {
-	Version                  int            `asn1:"default:1"`
-	AgentId                  string         `asn1:"utf8"`
-	PrincipalUid             PrincipalUid   `asn1:""`
-	Reason                   Reason         `asn1:""`
-	Capabilities             []Capability   `asn1:"sequence"`
-	DelegationMode           DelegationMode `asn1:"default:0"`
-	AuthorizationConstraints []Capability   `asn1:"optional,omitempty,contextspecific,explicit,tag:0"`
-	RequestedLifetime        int            `asn1:"default:0"`
-	Timestamp                time.Time      `asn1:"generalized"`
-	Nonce                    []byte         `asn1:"octet"`
+	Version                  int             `asn1:"default:1"`
+	AgentId                  string          `asn1:"utf8"`
+	PrincipalUid             PrincipalUid    `asn1:""`
+	Reason                   Reason          `asn1:""`
+	Capabilities             []Capability    `asn1:"sequence"`
+	DelegationMode           DelegationMode  `asn1:"default:0"`
+	AuthorizationConstraints []Capability    `asn1:"optional,omitempty,contextspecific,explicit,tag:0"`
+	RequestedLifetime        int             `asn1:"default:0"`
+	Timestamp                time.Time       `asn1:"generalized"`
+	Nonce                    []byte          `asn1:"octet"`
+	AgentKeyBinding          AgentKeyBinding `asn1:"optional,omitempty,explicit,tag:1"`
+}
+
+// AgentKeyBinding binds a DelegationAuthorization to the agent's SPKI (DA
+// version 2). Semantics mirror PrincipalUid.keyHash: keyHash is the digest of
+// the agent public key's SPKI DER (hashAlgo(SPKI)), with hashAlgo defaulting
+// to SHA-256 when [0] is omitted.
+type AgentKeyBinding struct {
+	KeyHash  []byte              `asn1:"octet"`
+	HashAlgo AlgorithmIdentifier `asn1:"optional,omitempty,explicit,tag:0"`
+}
+
+// HashAlgoOID returns the effective hash algorithm OID for the agent binding
+// (nil/empty defaults to SHA-256).
+func (b AgentKeyBinding) HashAlgoOID() asn1.ObjectIdentifier {
+	if len(b.HashAlgo.Algorithm) == 0 {
+		return OIDSHA256
+	}
+	return b.HashAlgo.Algorithm
+}
+
+// IsZero reports whether the AgentKeyBinding is absent (zero value).
+func (b AgentKeyBinding) IsZero() bool {
+	return len(b.KeyHash) == 0
+}
+
+// MakeAgentKeyBinding constructs an AgentKeyBinding from an agent SPKI DER
+// digest. When algo is nil/empty it defaults to SHA-256. Unsupported hash
+// algorithms return an error (no silent fallback).
+func MakeAgentKeyBinding(algo asn1.ObjectIdentifier, spkiDER []byte) (AgentKeyBinding, error) {
+	if len(spkiDER) == 0 {
+		return AgentKeyBinding{}, fmt.Errorf("agent_key_binding: empty agent SPKI DER")
+	}
+	oid := algo
+	if len(oid) == 0 {
+		oid = OIDSHA256
+	}
+	h, err := KeyHashFromSPKI(oid, spkiDER)
+	if err != nil {
+		return AgentKeyBinding{}, err
+	}
+	return AgentKeyBinding{
+		KeyHash:  h,
+		HashAlgo: AlgorithmIdentifier{Algorithm: oid},
+	}, nil
+}
+
+// ValidateAgentKeyBinding validates the agent SPKI keyhash: length 1..64,
+// matching the declared hashAlgo's output length, and a hashAlgo from the same
+// supported set as PrincipalUid.keyHash.
+func ValidateAgentKeyBinding(b AgentKeyBinding) error {
+	if len(b.KeyHash) == 0 {
+		return fmt.Errorf("agent_key_binding: keyHash required for DA version 2")
+	}
+	algo := b.HashAlgoOID()
+	if len(algo) == 0 {
+		algo = OIDSHA256
+	}
+	name := HashOIDName(algo)
+	if name == "" {
+		return fmt.Errorf("agent_key_binding: hashAlgo %v: unsupported keyHash algorithm", algo)
+	}
+	want, ok := HashOutputLen[name]
+	if !ok {
+		return fmt.Errorf("agent_key_binding: hashAlgo %v: no output length mapping (requires external dependency)", algo)
+	}
+	if len(b.KeyHash) > 64 {
+		return fmt.Errorf("agent_key_binding: keyHash length %d: must be 1-64", len(b.KeyHash))
+	}
+	if len(b.KeyHash) != want {
+		return fmt.Errorf("agent_key_binding: keyHash length %d: must be %d (%s)", len(b.KeyHash), want, name)
+	}
+	return nil
+}
+
+// ValidateDelegationAuthTBSVersion enforces the DA version rules:
+//
+//	version 1 (or omitted/0) → agentKeyBinding MUST be absent;
+//	version 2 → agentKeyBinding MUST be present and valid;
+//	any other version → rejected.
+func ValidateDelegationAuthTBSVersion(tbs *DelegationAuthTBS) error {
+	if tbs == nil {
+		return fmt.Errorf("delegation_auth_tbs: nil")
+	}
+	version := tbs.Version
+	if version == 0 {
+		version = DAVersion1
+	}
+	switch version {
+	case DAVersion1:
+		if !tbs.AgentKeyBinding.IsZero() {
+			return fmt.Errorf("delegation_auth_tbs: version 1: agentKeyBinding must be absent")
+		}
+		return nil
+	case DAVersion2:
+		if tbs.AgentKeyBinding.IsZero() {
+			return fmt.Errorf("delegation_auth_tbs: version 2: agentKeyBinding is required")
+		}
+		return ValidateAgentKeyBinding(tbs.AgentKeyBinding)
+	default:
+		return fmt.Errorf("delegation_auth_tbs: unsupported version %d: must be 1 or 2", tbs.Version)
+	}
 }
 
 // ParseAIC parses the AIC extension from a certificate.
@@ -314,6 +431,15 @@ func matchDoubleStar(id, pattern string) bool {
 func ValidateAIC(aic *AIC) error {
 	if aic == nil {
 		return nil
+	}
+	// AIC.Version shares the same version axis as the DA TBS version (v2 = DA v2
+	// with an agent key binding). Accept {1, 2}; 0/omitted is treated as 1 (legacy).
+	version := aic.Version
+	if version == 0 {
+		version = DAVersion1
+	}
+	if version != DAVersion1 && version != DAVersion2 {
+		return fmt.Errorf("aic: version %d: must be 1 or 2", aic.Version)
 	}
 	if len(aic.AgentId) < 1 || len(aic.AgentId) > 256 {
 		return fmt.Errorf("aic: agentId length %d: must be 1-256", len(aic.AgentId))

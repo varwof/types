@@ -18,32 +18,48 @@
 
 # Abstract
 
-This document defines the JSON Web Token (JWT) profile of the AI Agent
-Identity Certificate (AIC), a companion specification to
-[AIC].  The AIC X.509 extension binds an AI
-Agent's cryptographic identity to a responsible principal, carries a
-structured capability container, authorization boundary constraints,
-delegation mode, and principal-signed delegation evidence, and enables
-fully offline authorization decisions at the TLS layer.
+The AI Agent Identity Certificate (AIC) [AIC] defines a data model in
+which the cryptographic identity of an AI agent is bound to a
+responsible principal, together with a structured capability
+container, delegation mode, authorization constraints, and
+principal-signed delegation evidence.  The normative definition of
+this model is specified by [AIC], where it is encoded in ASN.1 and
+carried in X.509 certificates, enabling authorization decisions at
+the transport layer, including fully offline operation.
 
-AIC-JWT encodes the same data model as an application-layer JWT so that
-the same authorization semantics can be enforced by HTTP APIs, web
-applications, and OAuth 2.0 ecosystems where transport-layer
-certificate presentation is not available.  The specification defines:
+Many HTTP, web, and OAuth 2.0 [RFC6749] deployments cannot present
+X.509 certificates at the transport layer.  This document therefore
+defines AIC-JWT as a JWT-based application-layer representation of
+the AIC data model defined by [AIC].  AIC-JWT is a companion
+representation, not a replacement for the X.509 form and not a new
+authorization model.
 
-* a nested JWS structure that preserves the two-layer signature model
-  of AIC -- a principal-signed DelegationAuthorization (DA) JWT
-  embedded in and covered by an issuer-signed outer JWT;
-* a namespaced `aic` claim carrying agent identity, principal binding,
-  structured capabilities, delegation mode, and authorization
-  constraints;
-* principal binding by SPKI hash or JWK thumbprint, with optional
-  credential bundle presentation in PKI deployments;
-* issuance flows for both PKI-based CAs and OAuth 2.0 authorization
-  servers, including [RFC7523] assertion exchange and [RFC8693] token
-  exchange;
-* validation rules, IANA registrations, and security considerations
-  aligned with the OAuth 2.0 and JOSE specifications.
+AIC-JWT uses the standard JWT [RFC7519] and JWS [RFC7515] mechanisms
+as its carrier and cryptographic envelope.  Its authorization
+semantics are inherited from the AIC model rather than defined by
+JWT or OAuth.  In particular, the outer AIC-JWT is issuer-signed and
+carries the principal-signed DA JWT as the value of the top-level
+`da` claim, preserving the two-layer signature model
+of AIC.
+
+The normative content of this document is limited to:
+
+* a mapping from the X.509 AIC extension fields to JWT claims that
+  preserves the AIC data model and its two-layer signature model;
+* representation and key-binding rules for the principal-signed
+  DelegationAuthorization;
+* validation rules for AIC-JWT, including claim consistency,
+  audience, and key-binding checks; and
+* a thin OAuth 2.0 consumption profile defining presentation of the
+  DA at a token endpoint as an [RFC7523] JWT bearer authorization
+  grant and the projection of the AIC `authorized` and
+  `representative` delegation modes into OAuth roles.
+
+Authorization semantics, policy evaluation, obligations, and
+cross-vocabulary equivalence of capabilities are outside the scope
+of this document; they are determined by the AIC capability schemes
+and deployment policies referenced by [AIC].  IANA registrations and
+security considerations for the AIC-JWT representation are included.
 
 ---
 
@@ -51,13 +67,14 @@ certificate presentation is not available.  The specification defines:
 
 ## 1.1. Problem Statement
 
-The AIC X.509 extension defined in [AIC]
-answers five questions at TLS handshake time: who delegated the
-authorization, which operations were authorized, under which
-constraints the Agent may run, how long the authorization is valid, and
-who is accountable for the Agent's actions.  Its design goal is that
-the complete authorization decision can be made offline, from the
-certificate and its credential bundle alone.
+The AIC X.509 extension defined in [AIC] binds an AI agent's
+cryptographic identity to a responsible principal and carries the
+information needed to determine whether a requested operation is
+authorized, including the delegated authority, capabilities,
+authorization constraints, validity, and accountability information.
+Its design goal is that the authorization decision can be made offline
+from the certificate and its credential bundle alone, including at the
+TLS layer.
 
 Many deployment contexts cannot present X.509 certificates at the
 transport layer:
@@ -69,47 +86,85 @@ transport layer:
 * serverless and managed gateways terminate TLS on behalf of the
   application.
 
-In these contexts the AIC data model must be carried in an
-application-layer token.  This document defines that token as a JWT
-[RFC7519] secured by JWS [RFC7515], and names it **AIC-JWT**.
+In these contexts, the AIC data model needs an application-layer
+carrier.  This document defines that carrier as a JSON Web Token (JWT)
+[RFC7519] secured by JSON Web Signature (JWS) [RFC7515], and names it
+**AIC-JWT**.
 
 ## 1.2. Relationship to the X.509 AIC Extension
 
-AIC-JWT is a companion profile, not a replacement.  The X.509 AIC
-extension remains the transport-layer profile used during TLS
-handshakes in managed, regulated, and air-gapped environments.  AIC-JWT
-carries the same semantic model at the application layer:
+AIC-JWT is a companion profile of the AIC X.509 extension, not a
+replacement and not a new authorization model.  The X.509 AIC
+extension remains the transport-layer representation used during TLS
+handshakes in managed, regulated, and air-gapped environments.
+AIC-JWT carries the same AIC semantic model at the application layer:
 
 | Concern | X.509 AIC (transport) | AIC-JWT (application) |
 |---------|------------------------|------------------------|
 | Encoding | ASN.1/DER | JSON (JWT claims) |
-| Signature framework | X.509 / [RFC5280] | JWS / RFC 7515 |
+| Signature framework | X.509 / [RFC5280] | JWS / [RFC7515] |
 | Principal signature | DelegationAuthorization | Inner DA JWT (`typ=aic+da+jwt`) |
-| Issuer coverage | CA signature over TBSCertificate | Outer JWT signature over the full payload |
-| Key binding | X.509 subject public key | `cnf` claim (RFC 7800) |
-| Revocation | CRL / OCSP / short lifetime | Token Status List / short lifetime |
-| Trust bootstrap | Certificate chain | JWKS / `x5c` / credential bundle |
+| Issuer signature coverage | CA signature over the TBSCertificate | JWS signature over the protected header and payload |
+| Agent key binding | Subject public key (SPKI) | `cnf` claim ([RFC7800]) |
+| Revocation / status | CRL / OCSP / short lifetime | Token Status List / short lifetime |
+| Trust establishment | Certificate chain | Trusted JWKS, `x5c`, or credential bundle |
 | Transport | TLS handshake (mTLS) | HTTP Authorization header |
 
-The two profiles share: `agentId`, `principalUid`, the Capability
-container (`schemeId`/`capabilityId`/`parameters`), `delegationMode`,
-`authorizationConstraints`, the DelegationAuthorization structure, the
+The two profiles share the same semantic elements, including the
+agent identity, principal identity, the Capability container
+(`schemeId`/`capabilityId`/`parameters`), delegation mode,
+authorization constraints, the DelegationAuthorization structure, the
 permission intersection model, capability glob matching, and the
-credential bundle verification model.
+credential-bundle verification semantics.
+
+[AIC] is the authoritative specification for AIC semantics.  This
+document does not redefine those semantics.  Where this document and
+[AIC] could otherwise be read as disagreeing about the AIC model,
+[AIC] governs the semantics, while this document governs the JWT
+representation, JWT-specific validation, and OAuth-facing projection.
+
+AIC-JWT is a credential representation, not a policy engine.  It
+carries the AIC delegation and constraint semantics for the consumer
+to evaluate; how a relying party combines those semantics with its
+own local execution policy is a deployment decision outside this
+document.
 
 ## 1.3. Scope
 
-The following sections are normative: token structure, claims
-definition, DA JWT definition, issuance flows, validation pipeline,
-credential bundle requirements, and IANA registrations.  Deployment
-models, implementation status, and performance characteristics are
+AIC-JWT is a JWT [RFC7519] profile and does not require OAuth-specific
+processing, an RFC 9068 access-token profile, or token-exchange
+semantics.  An AIC-aware validator applies the additional validation
+rules defined by this document to the AIC-JWT claims.
+
+This document defines the JWT carrier mapping of the AIC model
+specified in [AIC], together with the OAuth-facing consumption
+constraints needed to present that carrier at existing OAuth 2.0
+endpoints.  The AIC data model -- including delegation modes, capability
+container semantics, permission intersection, and principal/agent role
+definitions -- is defined by the AIC specification [AIC] and is not
+restated or extended here.
+
+Normative content includes token structure, claim definitions, the
+mapping of the AIC data model to JWT claims (Section 5.4), the
+validation pipeline, credential bundle requirements, the OAuth
+consumption profile, and IANA registrations.  Design principles,
+deployment architectures, and performance characteristics are
 informative.
 
-As in the X.509 AIC specification, this document deliberately separates
-cryptographic delegation from authorization semantics: AIC-JWT defines
-the representation and cryptographic binding of authorization-related
-information.  Whether an operation is permitted is determined by
-capability schemes and deployment policy, not by this specification.
+Out of scope:
+
+* authorization semantics and policy evaluation -- this document does
+  not define or modify how capabilities, grants, or authorization
+  constraints are evaluated; those semantics are defined by [AIC] and
+  deployment policy;
+* obligations, PDP behavior, or any mechanism that changes the scopes
+  or the authority of an issued token after issuance;
+* semantic equivalence between capabilities expressed in different
+  vocabularies or across service domains;
+* new OAuth 2.0 flows or protocols: AIC-JWT is consumed through the
+  existing [RFC7523] JWT bearer grant mechanism.  Integration with
+  [RFC8693], DPoP [RFC9449], Token Status Lists [TSL], or [RFC9068]
+  access tokens is deployment-specific and outside this specification.
 
 ## 1.4. Requirements Language
 
@@ -129,90 +184,116 @@ addition:
 
 AIC-JWT:
 : The outer JWT defined by this specification (`typ=aic+jwt`), signed by
-  a CA or an OAuth authorization server.
+  the configured AIC issuer.
 
 DA JWT:
-: The inner JWT (`typ=aic+da+jwt`) signed by the principal, the JSON
-  equivalent of DelegationAuthorization / DelegationAuthTBS.
+: The inner JWT (`typ=aic+da+jwt`) signed by the principal, carrying
+  the principal-signed delegation authorization content defined by
+  [AIC].
 
 PA JWT:
-: An optional companion JWT (`typ=aic+pa+jwt`) carrying the JSON
-  equivalent of the PrincipalAuthorization extension.
+: An optional companion JWT (`typ=aic+pa+jwt`) carrying the
+  application-layer representation of the PrincipalAuthorization
+  extension defined by [AIC].  When present, it is part of the
+  credential bundle and is not itself the outer AIC-JWT.
 
 Issuer:
-: The entity that signs the outer AIC-JWT.  It is either a CA (PKI
-  mode) or an OAuth authorization server (AS mode).
+: The entity that signs the outer AIC-JWT.  In PKI deployments, the
+  issuer is a CA or other configured PKI issuer; in OAuth deployments,
+  it is an authorization server (AS).
 
 Audit actor vs. OAuth actor:
 : The audit actor recorded per Section 8.1 is the principal in
   `representative` mode (the agent is the executor).  This is distinct
   from the RFC 8693 `act` claim (Section 5.1.1), which names the
-  executing agent on tokens whose `sub` is the resource owner.
+  executing agent on tokens whose `sub` is the resource owner.  The
+  terms "audit actor" and OAuth `act` are not semantically equivalent.
 
 ## 1.6. Related Work
 
 [DAAP] (`draft-mishra-oauth-agent-grants`) defines a delegated agent
-authorization protocol with DID-based agent identity, JWT grant tokens,
-and online verification.  AIC-JWT differs in that identity is anchored
-to a PKI/AS trust root, and the principal's consent is a nested
-principal-signed JWT covered by the issuer signature.  Principal key
-resolution is online by default (JWKS) or, in PKI deployments, via the
-optional credential bundle.
+authorization protocol with DID-based agent identity and JWT grant
+tokens.  AIC-JWT differs in architecture: identity is anchored to a
+PKI/AS trust root, and the principal's consent is carried as a nested
+principal-signed DA JWT covered by the issuer signature, rather than
+as a standalone grant produced by a delegated-agent flow.  Principal
+public key resolution may use JWKS in OAuth deployments or a
+credential bundle in PKI deployments; the trust model is defined by
+the validation rules of this specification.
 
 [OBO] (`draft-oauth-ai-agents-on-behalf-of-user`) extends OAuth 2.0
 flows with `requested_actor` and `actor_token` parameters.  AIC-JWT is a
 token format that can be produced by such flows.
 
-[WIMSE] (`draft-ietf-wimse-s2s-protocol`) defines workload identity
-tokens carrying `iss`, `sub`, `exp`, `jti`, and `cnf`.  WIMSE tokens
-identify workloads but do not carry authorization semantics; AIC-JWT
-adds the AIC authorization model on top of the same JOSE primitives.
+The WIMSE working group separates workload identifiers
+(draft-ietf-wimse-identifier) from workload credentials (X.509 WIC
+and JWT WIT forms; draft-ietf-wimse-workload-creds).  These documents
+identify workloads and do not carry delegation or authorization data.
+AIC-JWT is the JWT mapping of the AIC model defined in [AIC]; it
+composes with WIMSE/SPIFFE workload identities at the credential
+layer, and it does not add authorization semantics of its own.  In
+this composition, WIMSE/SPIFFE identifies the workload; AIC expresses
+what that agent is authorized to do and by whom.
 
-[ATN], [PEDIGREE], and [HDP] carry delegation information in
-application-layer JWS/DID documents but rely on online discovery or
-flat scope representations.  AIC-JWT keeps the structured capability
-container, the nested principal signature, and authorization
-constraints of AIC.
+Other delegation-oriented application-layer credential formats,
+including [ATN], [PEDIGREE], and [HDP], explore related mechanisms for
+representing delegation and provenance.  AIC-JWT instead defines the
+JWT representation of the AIC model specified in [AIC], including its
+structured capability container, nested principal authorization, and
+authorization constraints.
 
 ---
 
 # 2. Design Principles
 
 This specification is guided by five orthogonal principles, carried
-over from the X.509 AIC specification:
+over from the AIC specification [AIC]:
 
-1. **Two-layer signature nesting.**  The principal signs the DA JWT;
-   the issuer signs the outer AIC-JWT covering the complete payload
-   including the DA JWT.  Neither party can modify the authorization
-   content unilaterally.  A compromised CA/AS cannot forge a
-   principal-signed DA; a compromised principal key cannot mint a
-   valid outer token.
+1. **Two-layer signature nesting.**  The principal signs the DA JWT,
+   which carries the delegated authorization defined by [AIC].  The
+   issuer then signs the outer AIC-JWT, covering the complete payload
+   including the DA JWT.  The principal's delegation authorization
+   therefore cannot be modified by the issuer without invalidating the
+   principal signature, and a principal key alone cannot mint a valid
+   outer AIC-JWT.  Where the AIC profile binds the delegated
+   authorization to the Agent key within the DA, that binding is
+   covered by the principal signature as well; otherwise the outer
+   token's `cnf` claim binds the presenting Agent key at consumption
+   time.
 
 2. **One container, three contexts.**  The Capability structure
    (`schemeId`/`capabilityId`/`parameters`) is reused in
    `aic.capabilities`, `aic.constraints`, and `grants` of the PA JWT.
-   Gateways route evaluation by `schemeId` to scheme-specific plugins;
-   the certificate format stays frozen while semantics evolve through
-   registries.
+   Each occurrence has the semantic role defined by [AIC]; reuse of the
+   container does not imply semantic equivalence.  Gateways route
+   evaluation by `schemeId` to scheme-specific processing, allowing
+   capability semantics to evolve through their respective registries
+   without changing the AIC-JWT container.
 
-3. **Online-first, OAuth-native verification.**  Verification follows
-   standard OAuth/JOSE practice: issuer keys come from JWKS (optionally
-   cached), token status from Token Status Lists [TSL], and sender binding
-   from `cnf`/DPoP.  Offline self-contained verification is NOT a
-   design goal of the JSON profile; it is the domain of the X.509 AIC
-   (mTLS) profile.
+3. **Application-layer, JWT-native verification.**  AIC-JWT uses
+   standard JWT and JOSE mechanisms for cryptographic verification.
+   Key discovery, credential status, and sender-constraining mechanisms
+   such as JWKS, Token Status Lists [TSL], and DPoP [RFC9449] MAY be
+   used according to deployment requirements; they are deployment-
+   specific and are not intrinsic to the AIC-JWT representation.
+   Fully self-contained offline verification is a deployment property
+   of the X.509 AIC profile and its credential bundle.
 
 4. **Delegation mode as a cryptographically bound field.**
-   `delegation_mode` distinguishes `authorized` (agent acts in its own
-   name) from `representative` (agent acts in the principal's name),
-   with different runtime checks and audit semantics, exactly as in
-   the X.509 profile.
+   `delegation_mode` distinguishes `authorized` (the Agent acts in its
+   own name) from `representative` (the Agent acts in the principal's
+   name), with the corresponding runtime and audit semantics defined
+   by [AIC].  AIC-JWT carries this distinction without redefining it.
 
-5. **OAuth alignment.**  Standard JOSE and OAuth primitives are reused
-   wherever possible: `iss`/`sub`/`aud`/`iat`/`exp`/`jti` claims,
-   `cnf` (RFC 7800), DPoP (RFC 9449), Rich Authorization Requests
-   (RFC 9396), token exchange [RFC8693], JWT assertions [RFC7523],
-   and Token Status Lists [TSL].
+5. **Protocol interoperability.**  AIC-JWT uses standard JWT and JOSE
+   mechanisms and defines a thin OAuth 2.0 consumption profile.  Standard
+   claims such as `iss`, `sub`, `aud`, `iat`, `exp`, and `jti`, together
+   with `cnf` [RFC7800], are used where required by the AIC-JWT
+   representation.  The OAuth profile uses the existing [RFC7523] JWT
+   bearer grant mechanism.  Integration with DPoP [RFC9449], Rich
+   Authorization Requests [RFC9396], token exchange [RFC8693], Token
+   Status Lists [TSL], and RFC 9068 access tokens is deployment-specific
+   and outside the core AIC-JWT specification.
 
 ---
 
@@ -224,59 +305,78 @@ The AIC-JWT trust model has four roles:
 
 * **Principal**: the natural person or organization that signs the DA
   JWT.  The principal's public key is identified by
-  `aic.principal.key_hash`.  In `representative` mode the principal is
-  the resource owner and is the subject (`sub`) of the DA and of the
-  issued token; a deployment whose accountable operator differs from
-  the resource owner MUST represent that operator separately and MUST
-  NOT place it in the grant subject (Section 10.2).
-* **Agent**: the AI agent presenting the token.  The agent key is
-  bound by `cnf`.  In `representative` mode the agent is the OAuth
-  actor/client (`act` / `client_id`), not the subject; in `authorized`
-  mode the agent MAY be the subject (`sub`) as the authorized accessor
-  (RFC 7523 Section 3, item 2A).
+  `aic.principal.key_hash`.  In `representative` mode, the Principal is
+  projected as the OAuth resource owner and is the subject (`sub`) of
+  the DA and, where applicable, of the issued token; a deployment whose
+  accountable operator differs from the resource owner MUST represent
+  that operator separately and MUST NOT place it in the grant subject
+  (Section 10.2).
+* **Agent**: the AI agent presenting the token.  The Agent key is bound
+  by `cnf` at presentation time.  In `representative` mode, the Agent
+  is projected as the OAuth actor and MAY also be the OAuth client
+  presenting the credential; in `authorized` mode, the Agent MAY
+  occupy `sub` as the authorized accessor, consistent with the
+  authorization-grant semantics of RFC 7523 Section 3, item 2A.
 * **Issuer**: the CA (PKI mode) or OAuth authorization server (AS
-  mode) that validates the DA JWT and signs the outer AIC-JWT.
+  mode) that validates the DA JWT and signs the outer AIC-JWT.  The
+  Principal is not the issuer of the outer AIC-JWT; the Principal
+  signs only the DA JWT.
 * **Verifier/Gateway**: the policy enforcement point that validates
-  the token and makes the access decision.
+  the AIC-JWT and its credential bundle and makes the access decision
+  according to [AIC] and deployment policy.
 
-The issuer's public key comes from configured JWKS/`x5c` material
-(optionally cached).  The principal's public key comes either from an
-online JWKS or, in PKI deployments, from the credential bundle
-presented with the token.
+The issuer's verification key is obtained from configured or otherwise
+trusted JWKS/`x5c` material and MAY be cached.  The principal's
+verification key is resolved from trusted JWKS material or, in PKI
+deployments, from the credential bundle presented with the token.  Key
+resolution does not by itself establish trust; the trust relationship
+for the resolved key MUST be established by the deployment before the
+DA is accepted.
 
 ## 3.2. Relationship to OAuth 2.0 Roles
 
-| AIC-JWT role | OAuth 2.0 role |
-|--------------|----------------|
-| Principal | Resource Owner / subject |
-| Agent | Client / actor |
-| Issuer (AS mode) | Authorization Server |
-| Verifier/Gateway | Resource Server |
+| AIC-JWT role | OAuth projection |
+|--------------|------------------|
+| Principal | Resource Owner / `sub` in `representative` mode |
+| Agent | `sub` in `authorized` mode; `act` in `representative` mode; MAY also be the OAuth client |
+| Issuer | Authorization Server in AS mode |
+| Verifier/Gateway | Resource Server / policy enforcement point |
 
-Role placement is mode-dependent.  In `representative` mode the
-resource owner / principal is the subject (`sub`) of the DA and of the
-issued token and the agent is the RFC 8693 actor (`act`) / OAuth
-client; in `authorized` mode the agent occupies `sub` as the
-authorized accessor (RFC 7523 Section 3, item 2A), with the principal
-as the signing issuer.  The AIC-JWT can serve as an access token
-(RFC 9068-style), an assertion [RFC7523], or the output of a token
-exchange [RFC8693].
+In `representative` mode, the Principal is projected as the resource
+owner and the Agent as the OAuth actor; the Agent MAY also be the
+OAuth client presenting the credential.  In `authorized` mode, the
+Agent is the authorized accessor and MAY occupy `sub`, consistent with
+the RFC 7523 authorization-grant semantics (Section 3, item 2A).  RFC
+7523 distinguishes this authorization-grant use from client
+authentication, for which `sub` identifies the OAuth client.
 
-The OAuth `act` claim names the executing agent; it is distinct from
-the audit actor of Section 8.1 (the principal, in `representative`
-mode).
+AIC-JWT is a self-contained credential: the authorization claims and the
+principal-signed DA travel inside the token.  Self-containment of the
+credential does not imply offline self-contained verification
+(Section 9.3).  This document does not define an RFC 9068 access-token
+profile and does not modify RFC 8693.
+Deployments MAY present AIC-JWT within existing OAuth flows (for
+example, the DA as an RFC 7523 authorization grant) where their
+deployment profile permits; conformance of such presentations to RFC
+9068 or RFC 8693 is outside this specification.
+
+The OAuth `act` claim identifies the executing Agent in the
+`representative` projection; it is distinct from the audit actor
+defined in Section 8.1, which identifies the Principal represented by
+the Agent in `representative` mode.
 
 ## 3.3. Relationship to mTLS
 
-AIC-JWT does not require mutual TLS (mTLS).  Sender binding is provided
-at the application layer by the `cnf` claim (Section 5.1.1) and MAY be
-strengthened with DPoP [RFC9449].  Where a deployment uses mTLS, the
-verifier MAY additionally check that the mTLS client certificate key
-corresponds to `cnf` (for example, by comparing the JWK thumbprint of
-the certificate public key with the `jkt` member).  Whether and how
-mTLS is deployed is a deployment decision and outside the scope of this
-specification; in particular, offline handshake-time decisions remain
-the domain of the X.509 AIC (mTLS) profile.
+AIC-JWT does not require mutual TLS (mTLS).  Sender binding MAY be
+enforced at the application layer using the `cnf` claim (Section
+5.1.1) and, where applicable, DPoP [RFC9449].  Where a deployment uses
+mTLS, the verifier MAY additionally check that the mTLS client
+certificate public key corresponds to the key identified by `cnf`, for
+example by comparing the JWK thumbprint of the certificate public key
+with the `jkt` member.  Whether and how mTLS is deployed is a
+deployment decision and outside the scope of this specification; in
+particular, offline handshake-time decisions remain the domain of the
+X.509 AIC (mTLS) profile.
 
 ---
 
@@ -284,53 +384,79 @@ the domain of the X.509 AIC (mTLS) profile.
 
 ## 4.1. Nested JWS Construction
 
-The AIC-JWT is a nested JWS per Section 5.2 of [RFC7515]:
+The AIC-JWT is a nested JWT in which the inner Delegation
+Authorization (DA) JWT is carried as a claim value in an outer JWS.
+The nested JWT model is defined by [RFC7519], and the signatures use
+the JWS mechanisms defined by [RFC7515].
 
 1. The principal creates the DA JWT (Section 5.2) and signs it with the
    principal's private key.
 2. The agent or issuer constructs the outer payload (Section 5.1)
-   containing the `da` claim whose value is the complete DA JWT
-   string.
+   containing the `da` claim whose value is the complete
+   compact-serialized DA JWT string.
 3. The issuer signs the outer payload, producing the AIC-JWT.
 
-The outer signature covers the complete inner JWT string.  Any
-modification of the inner token invalidates the outer signature.
+The outer JWS therefore provides integrity protection over the complete
+DA JWT string as carried in the `da` claim.  Any modification of the
+inner JWT -- including its JOSE header, payload, or signature -- changes
+the outer payload and causes outer signature verification to fail.
 
-The AIC-JWT uses the JWS compact serialization.  The inner DA JWT uses
-the JWS compact serialization as well.
+The AIC-JWT uses the JWS compact serialization, as does the inner DA
+JWT.
+
+The `da` claim value MUST be processed as the exact compact-serialized
+DA JWT string received in the outer payload.  A verifier MUST NOT
+reconstruct or reserialize the DA JWT before performing inner JWS
+signature verification.
 
 ## 4.2. Outer JOSE Header
 
 The outer header MUST contain:
 
-* `alg`: a JOSE algorithm from the allowlist in Section 4.5.  The value
-  `none` MUST NOT be used.
+* `alg`: a JOSE algorithm permitted by Section 4.5.  The value `none`
+  MUST NOT be used.
 * `typ`: the string `aic+jwt`.
 * `kid`: the identifier of the issuer's signing key, per [RFC7515]
   Section 4.1.4.
 
-The outer header SHOULD contain `x5c` or `x5t` when the issuer's key is
-an X.509 certificate (PKI mode), to bridge X.509 trust anchors.
+The outer header MAY contain `x5c` or `x5t` when the issuer's signing
+key is represented by an X.509 certificate.  An `x5c` value MAY provide
+the X.509 certificate chain needed for certificate-based key
+validation; an `x5t` value identifies an X.509 certificate by its
+thumbprint.  The presence of `x5c` or `x5t` MUST NOT by itself
+establish trust; verifiers MUST validate the issuer key against their
+configured trust policy.
 
 ## 4.3. Inner DA JOSE Header
 
 The DA JWT header MUST contain:
 
-* `alg`: a JOSE algorithm from the allowlist in Section 4.5.
+* `alg`: a JOSE algorithm permitted by Section 4.5.
 * `typ`: the string `aic+da+jwt`.
 * `kid`: the identifier of the principal's signing key.
 
-The DA JWT MUST NOT be accepted as a standalone access token; the
-distinct `typ` value prevents confusion with the outer token.
+The DA JWT MUST NOT be accepted as a standalone AIC-JWT or access
+token.  Verifiers operating in an AIC-JWT context MUST validate the
+`typ` value and apply the DA-specific validation rules defined by this
+specification.  The distinct `typ` value provides explicit JWT typing
+and helps prevent cross-type token confusion.
 
 ## 4.4. PA JOSE Header
 
-When the optional PA JWT (Section 5.4) is used, its header MUST
+When the optional PA JWT (Section 5.3) is used, its header MUST
 contain:
 
-* `alg`: a JOSE algorithm from the allowlist in Section 4.5.
+* `alg`: a JOSE algorithm permitted by Section 4.5.
 * `typ`: the string `aic+pa+jwt`.
-* `kid`: the issuer's signing key identifier.
+* `kid`: the identifier of the PA signing key.
+
+In pure-JSON and OAuth deployments, the PA JWT is signed by the issuer
+that attests the principal identity; in the AS mode of Section 10.2
+this is the same issuer that signs the outer AIC-JWT.  In PKI
+deployments the PrincipalAuthorization is carried in the principal's
+X.509 certificate rather than as a PA JWT, and the PA JWT form is not
+used.  Verifiers MUST validate the PA signing key and its trust
+relationship before accepting the PA (Section 5.3).
 
 ## 4.5. Algorithm Allowlist
 
@@ -339,28 +465,33 @@ algorithm policy of the X.509 AIC specification:
 
 | JOSE `alg` | Requirement | X.509 counterpart |
 |------------|-------------|-------------------|
-| `ES256` | MUST | ecdsa-with-SHA256 |
-| `ES384` | MAY | ecdsa-with-SHA384 |
-| `ES512` | MAY | ecdsa-with-SHA512 |
-| `RS256` | MUST | sha256WithRSAEncryption |
-| `RS384` | MAY | sha384WithRSAEncryption |
-| `RS512` | MAY | sha512WithRSAEncryption |
-| `PS256` | MAY | RSASSA-PSS with SHA-256 |
-| `PS384` | MAY | RSASSA-PSS with SHA-384 |
-| `PS512` | MAY | RSASSA-PSS with SHA-512 |
+| `ES256` | MUST | ECDSA P-256 with SHA-256 |
+| `ES384` | MAY | ECDSA P-384 with SHA-384 |
+| `ES512` | MAY | ECDSA P-521 with SHA-512 |
+| `RS256` | MUST | RSA PKCS#1 v1.5 with SHA-256 |
+| `RS384` | MAY | RSA PKCS#1 v1.5 with SHA-384 |
+| `RS512` | MAY | RSA PKCS#1 v1.5 with SHA-512 |
+| `PS256` | MAY | RSA-PSS with SHA-256 |
+| `PS384` | MAY | RSA-PSS with SHA-384 |
+| `PS512` | MAY | RSA-PSS with SHA-512 |
 | `EdDSA` (Ed25519) | MAY | Ed25519 |
 
-The allowlist is the union of the SPIFFE JWT-SVID algorithm set
-([RFC7518] Sections 3.3-3.5) and EdDSA, so that a token can be
-verified by both JWT-SVID and AIC-JWT validators.  ES256 and RS256 are
-the common MUST-level core shared with RFC 9068 and JWT-SVID;
-interoperable deployments SHOULD use ES256 or RS256.
+The allowlist is based on the algorithm set of the SPIFFE JWT-SVID
+specification ([RFC7518] Sections 3.3-3.5), with EdDSA added so that
+tokens can be verified by both JWT-SVID and AIC-JWT validators and by
+Ed25519-based deployments.  Interoperable deployments SHOULD use ES256
+or RS256.
 
-Implementations MUST reject all other algorithms.  Implementations
-MUST follow the JSON Web Algorithm Confusion prevention guidance of
-[RFC8725]: the `alg` header MUST be validated against the allowlist,
-the `kid` MUST be resolved to the expected key, and symmetric
-algorithms such as `HS256` MUST NOT be accepted for AIC-JWT.
+Implementations MUST reject all other algorithms, including symmetric
+MAC algorithms such as `HS256`.  Implementations MUST follow the JWT
+Best Current Practices of [RFC8725]: the `alg` value MUST be validated
+against the allowlist before signature verification, and the selected
+verification key MUST be compatible with the declared algorithm and key
+type.
+
+The `kid` value is used only to select a candidate verification key
+from a trusted and appropriately scoped key set.  A `kid` value MUST
+NOT by itself establish trust.
 
 ---
 
@@ -374,8 +505,9 @@ JWT and OAuth claims.
 
 ### 5.1.1. Standard Claims
 
-* `iss` (REQUIRED): the issuer identifier, a URL per [RFC9068] and
-  [RFC9207].
+* `iss` (REQUIRED): the issuer identifier per [RFC7519].  Where the
+  token is issued by an OAuth authorization server, the identifier
+  SHOULD be a URL unique to that issuer per [RFC9207].
 * `sub` (REQUIRED): mode-dependent.  In `authorized` mode it is the
   `agentId`; the agent is the authorized accessor (RFC 7523 Section 3,
   item 2A).  In `representative` mode it is the resource owner /
@@ -391,10 +523,11 @@ JWT and OAuth claims.
   with a `sub` member equal to the `agentId` (RFC 8693 actor).  MUST
   be absent in `authorized` mode.
 * `aud` (REQUIRED): a string or array of strings identifying the
-  intended resource servers or gateways.  Verification follows RFC 9068
-  Section 4.  Deployments that base decisions solely on capability
-  evaluation MUST still include a deployment-scoped audience to prevent
-  audience confusion.
+  intended resource servers or gateways.  Verification follows
+  [RFC7519] audience semantics and the deployment's audience policy.
+  Deployments that base decisions solely on capability evaluation MUST
+  still include a deployment-scoped audience to prevent audience
+  confusion.
 * `iat` (REQUIRED): NumericDate of issuance.
 * `exp` (REQUIRED): NumericDate of expiry.  The lifetime
   `exp - iat` MUST NOT exceed the DA's `requested_lifetime`, which MUST
@@ -406,20 +539,27 @@ JWT and OAuth claims.
 * `nbf` (OPTIONAL): NumericDate before which the token MUST NOT be
   accepted.
 * `jti` (REQUIRED): a unique token identifier used for replay
-  prevention and status lists.  When a DA JWT is present, `jti` MUST
-  equal the DA `nonce` (carried in the DA as `jti`).
+  prevention and status lists.  This profile uses a one-DA-per-issued-
+  token model: when a DA JWT is present, `jti` MUST equal the DA
+  `nonce` (carried in the DA as `jti`), the nonce is consumed at first
+  issuance, and it MUST NOT be reused for a second outer token.
 * `cnf` (REQUIRED): a confirmation claim per [RFC7800] binding the
   token to the Agent's proof-of-possession key.  The `jkt` member
   ([RFC7638] thumbprint) is RECOMMENDED.  When DPoP [RFC9449] is used,
   the `jkt` member MUST match the DPoP proof key thumbprint.  Where a
   deployment uses mTLS, the verifier MAY cross-check the mTLS client
-  certificate key against `cnf` (Section 3.3).
+  certificate key against `cnf` (Section 3.3).  In this revision the
+  principal-signed DA binds the delegated authorization to the Agent
+  identity (`agent_id`); a DA-level binding of the Agent key
+  (requiring the key identified by `cnf` to match a DA agent-key
+  binding) is reserved for a future DA claim-set revision aligned with
+  the X.509 AIC DA v2.
 * `scope` (OPTIONAL): an OAuth scope string projection of the
   capabilities, for interoperability with generic OAuth resource
   servers.  The `aic.capabilities` claim remains the canonical
   authorization input.
-* `client_id` (OPTIONAL): the OAuth client identifier in AS mode,
-  per RFC 9068.
+* `client_id` (OPTIONAL): the OAuth client identifier, present when
+  the token is issued in OAuth AS mode.
 * `status` (OPTIONAL): a Token Status List reference per
   [TSL], with `idx` and `uri` members.
 * `authorization_details` (OPTIONAL): a Rich Authorization Requests
@@ -489,13 +629,15 @@ principal non-repudiation.
 
 When present, the verifier MUST validate the DA JWT and MUST check
 consistency between the DA JWT payload and the outer `aic` claim
-(Section 13).
+(Section 11).
 
-## 5.2. DA JWT Payload (DelegationAuthTBS Equivalent)
+## 5.2. DA JWT Payload
 
-The DA JWT payload is the JSON equivalent of DelegationAuthTBS.  In
-addition to the AIC members below, every DA JWT MUST carry the RFC 7523
-claims `iss`, `sub`, `aud`, `exp` and `jti`:
+The DA JWT payload carries the principal-signed delegation
+authorization content defined by [AIC]; it is the JWT counterpart of
+the X.509 DelegationAuthTBS signing structure, not a byte-level
+encoding of it.  In addition to the AIC members below, every DA JWT
+MUST carry the RFC 7523 claims `iss`, `sub`, `aud`, `exp` and `jti`:
 
 ```
 {
@@ -524,6 +666,8 @@ claims `iss`, `sub`, `aud`, `exp` and `jti`:
 * `ver` (REQUIRED): 2.  `ver=2` is the DA claim set defined by this
   revision (-01); `ver=1` is the -00 claim set and MUST be rejected by
   -01 implementations (fail closed rather than silently downgraded).
+  `da.ver` is the DA claim-set version and is distinct from `aic.ver`
+  (the AIC-JWT profile version).
 * `iss` (REQUIRED): the principal identifier `realm:id`; MUST equal
   the realm and id of the `principal` binding (RFC 7523 issuer).
 * `sub` (REQUIRED): mode-dependent grant subject.  In `authorized`
@@ -539,7 +683,10 @@ claims `iss`, `sub`, `aud`, `exp` and `jti`:
 * `agent_id` (REQUIRED): the agent identifier.  In `authorized` mode
   it MUST equal the outer `sub`; in `representative` mode it MUST
   equal the outer `act.sub` and the OAuth `client_id`.
-* `principal` (REQUIRED): MUST equal the outer `aic.principal`.
+* `principal` (REQUIRED): MUST equal the outer `aic.principal`.  The
+  key used to verify the DA JWT signature MUST correspond to the
+  principal key identified by `principal.key_hash` and
+  `principal.hash_alg`.
 * `reason` (REQUIRED): `code` (1 to 64 characters, controlled
   vocabulary, e.g., `SCHEDULED_MAINTENANCE`, `AUTO_RENEWAL`,
   `DATA_ANALYSIS`) and `desc` (1 to 512 characters, human readable).
@@ -550,21 +697,28 @@ claims `iss`, `sub`, `aud`, `exp` and `jti`:
 * `requested_lifetime` (REQUIRED): 1 to 86400 seconds; SHOULD be
   3600 to 86400.
 * `ts` (REQUIRED): NumericDate of the principal's signature.
-* `nonce` (REQUIRED): base64url encoding of 32 bytes from a CSPRNG,
-  used for replay prevention.  The issuer MUST check uniqueness and
-  persist used nonces.
+* `nonce` (REQUIRED): the unpadded base64url encoding of exactly 32
+  octets from a CSPRNG, used for replay prevention.  The issuer MUST
+  check uniqueness and persist used nonces.
 
 The signing input is the UTF-8 encoding of the JWS payload as defined
 by RFC 7515 (that is, the payload is not a DER encoding; JSON field
 order in the signed payload is the order produced by the JWS
 serialization and MUST be preserved as signed).
 
-## 5.3. PA JWT Payload (PrincipalAuthorization Equivalent)
+## 5.3. PA JWT Payload
 
-The optional PA JWT carries the JSON equivalent of the
-PrincipalAuthorization extension.  It is REQUIRED in
+The optional PA JWT carries the JSON representation of the
+PrincipalAuthorization extension defined by [AIC].  It is REQUIRED in
 `representative` mode when no principal X.509 certificate with the
-PrincipalAuthorization extension is present in the bundle:
+PrincipalAuthorization extension is present in the bundle.
+
+In pure-JSON and OAuth deployments, the PA JWT MUST be signed by the
+issuer that attests the principal identity; in the AS mode of Section
+10.2 this is the same issuer that signs the outer AIC-JWT, and the PA
+JOSE header `kid` (Section 4.4) identifies that signing key.  In PKI
+deployments the PrincipalAuthorization is carried in the principal's
+X.509 certificate, and the PA JWT form is not used:
 
 ```
 {
@@ -634,65 +788,113 @@ Each capability is a JSON object:
 ```
 
 * `scheme` (REQUIRED): the capability scheme identifier, 1 to 128
-  characters.  Semantics are defined by the scheme, not by this
-  specification.  Unknown schemes are routed to scheme-specific
-  plugins; requests referencing unknown schemes MUST be rejected
-  (fail-closed).
+  characters.  The scheme is the namespace that defines the semantics
+  of the capability, including identifier matching and parameter
+  subset rules.  The `scheme` value MUST be matched exactly; wildcards
+  MUST NOT be used in the `scheme` member, and a capability with
+  `scheme="*"` MUST NOT be used (a bare `*` is not a cross-scheme
+  capability).  Unknown schemes MUST be rejected unless the verifier
+  has an explicit scheme-specific implementation or plugin for that
+  scheme (fail-closed).
 * `id` (REQUIRED): the capability identifier within the scheme, 1 to
-  256 characters, supporting glob wildcards (Section 6.2).
+  256 characters.  The syntax and matching semantics of `id` are
+  defined by the capability scheme; the HTTP-style examples in this
+  section use the identifier matching rules of Section 6.2.
 * `params` (OPTIONAL): a JSON value (object, array, string, number, or
   boolean) whose semantics are defined by the scheme.  When serialized,
   `params` MUST NOT exceed 512 bytes.
 
 The Capability object is the unified container reused in three
 contexts: `aic.capabilities`, `aic.constraints`, and PA `grants`.
+Although the container is the same, the authorization role of each
+context is defined by the AIC semantic model; reuse does not imply
+semantic equivalence.
 
-## 6.2. Glob Matching
+Capability matching and parameter-subset evaluation define the
+effective AIC authorization input; they are not the final execution
+decision of a resource server or gateway.  Deployment-local execution
+policy is outside the AIC-JWT credential.
 
-Capability matching uses the same rules as the X.509 AIC
-specification:
+## 6.2. Identifier Matching
+
+For schemes that use the HTTP-style capability syntax, the matchable
+identifier is the full identifier `scheme + ":" + id` (for example,
+`http:GET:/api/v1/users`).  The `scheme` member is the exact first
+component of the full identifier and MUST NOT be wildcarded; the glob
+operators below apply to the `id` portion after the scheme prefix.
 
 | Pattern | Meaning | Example |
 |---------|---------|---------|
-| `scheme:method:path` | exact | `http:GET:/api/v1/users` |
-| `scheme:method:path/*` | single segment (no `/`) | `http:GET:/api/v1/*` |
-| `scheme:method:path/**` | multi segment | `http:GET:/api/v1/**` |
-| `scheme:{a,b}:path` | alternation | `http:{GET,POST}:/api/*` |
-| `scheme:[a-z]*:path` | character class | `http:[A-Z]*:/api/*` |
-| `scheme:*:path` | single-segment wildcard in the method position | `http:*:/api/v1/*` |
-| `scheme:*` | scheme-level wildcard | `http:*` |
+| `http:GET:/api/v1/users` | exact | `http:GET:/api/v1/users` |
+| `http:GET:/api/v1/*` | single path segment (no `/`) | `http:GET:/api/v1/users` |
+| `http:GET:/api/v1/**` | one or more path segments | `http:GET:/api/v1/users/admin` |
+| `http:{GET,POST}:/api/*` | alternation within a segment | `http:GET:/api/users` |
+| `http:[A-Z]*:/api/*` | character class and embedded wildcard | `http:GET:/api/users` |
+| `http:*:/api/v1/*` | wildcard method position | `http:GET:/api/v1/users` |
 
-Matching precedence (highest to lowest): exact, single-segment
-wildcard, multi-segment wildcard, alternation `{a,b}`, character class
-`[a-z]`, scheme-level wildcard.  When multiple rules match, the
-highest-precedence rule applies.  If no rule matches, the capability
-MUST be denied.
+A scheme-level wildcard (`scheme:*`) MUST NOT be used; `scheme` is
+always exact.  A bare `*` without a scheme prefix MUST NOT be
+interpreted as a cross-scheme capability.
 
-Bare `*` without a scheme namespace MUST NOT be allowed.
-
-Matching is implemented as a two-level token stream: the pattern and
-the target are first split on `:`; each segment is then split on `/`.
-`*` matches exactly one path segment that does not contain `/` (or one
+The full identifier is matched as a two-level token stream: the
+pattern and target are first split on `:` into the scheme and id
+components, and each id component is then split on `/`.  `*` matches
+exactly one path segment that does not contain `/` (or one
 colon-segment in the method position), while `**` matches one or more
 segments and MAY cross `/` boundaries.  Within a literal segment,
 `{a,b}` alternation matches one of the alternatives and `[a-z]`
 character classes match a single character in the class; an embedded
 `*` matches any characters within the segment (for example,
-`[A-Z]*`).  This algorithm was verified by the reference
-implementations (Go and TypeScript/WebCrypto) against the examples in
-this section.
+`[A-Z]*`).
 
-## 6.3. Parameter Intersection
+Precedence is limited to specificity: literal segments are more
+specific than `*`, and `*` is more specific than `**`.  Alternation
+and character classes are per-segment matching operators and do not
+by themselves define an authorization precedence.  If more than one
+capability pattern matches, the scheme defines whether and how the
+matching entries combine, and the result MUST be deterministic.  If no
+capability grant matches the requested capability, the capability MUST
+be denied.
 
-When matching `P_grants` against `C_agent`:
+The exact syntax, escaping rules, and matching algorithm for a given
+capability scheme are defined by that scheme; the HTTP-style rules in
+this section MUST NOT be assumed for an unknown or unrelated scheme.
+This algorithm is verified by the reference implementations (Go and
+TypeScript/WebCrypto) against the examples in this section.
 
-* if `C_agent.params` exceeds the bounds of `P_grants.params`, the
-  capability entry is invalid and MUST be filtered or rejected;
-* otherwise the agent-specified `params` value is adopted in full.
+## 6.3. Capability Subset and Parameter Semantics
 
-Example: `P_grants.params = {"max_rows": 1000}` with
-`C_agent.params = {"max_rows": 100}` is accepted with `max_rows=100`;
-with `max_rows=5000` it is rejected.
+Authorization between a principal grant and an agent capability is a
+subset relation:
+
+    C_agent <= P_grant
+
+meaning the agent capability is within the authority granted by the
+principal grant.  The definition of this relation is scheme-specific:
+a capability scheme MUST define how identifiers and `params` are
+compared and what constitutes a valid subset.
+
+For example, an HTTP-style scheme MAY treat
+`P_grant.params.max_rows = 1000` and `C_agent.params.max_rows = 100`
+as a valid subset (`100 <= 1000`), and `max_rows = 5000` as invalid.
+
+If `C_agent.params` is not a valid subset of `P_grants.params` under
+the scheme-defined relation, the credential MUST be rejected; a
+verifier MUST NOT silently filter or rewrite the signed agent
+capability.  Where the subset relation holds, the effective parameter
+value is the agent value (which is at least as restrictive as the
+grant), evaluated according to scheme semantics.
+
+This specification does not define a universal ordering or
+intersection operation over arbitrary JSON values; scheme-specific
+implementations MUST define subset semantics for every parameter type
+they support.
+
+The effective AIC authorization is obtained by evaluating agent
+capabilities against principal grants and the applicable AIC
+authorization constraints (Section 7).  The final execution decision
+MAY additionally be restricted by deployment-local gateway or
+resource-server policy, which is outside the AIC-JWT credential.
 
 ---
 
@@ -700,9 +902,12 @@ with `max_rows=5000` it is rejected.
 
 `aic.constraints` is an optional array of Capability objects whose
 `scheme` MUST be `varwof/constraint-v1`; other scheme values MUST be
-rejected.  The `id` distinguishes constraint types; the following types
-are defined as examples, extensible through the capability scheme
-registry:
+rejected.  Within that scheme, `id` names the constraint type and
+`params` carries constraint-specific parameters.  This revision
+defines the following constraint types as the initial set of the
+`varwof/constraint-v1` scheme; new types are added within this scheme
+namespace, and incompatible semantics require a new scheme version
+(e.g., `varwof/constraint-v2`) rather than a change to `id` alone:
 
 | `id` | `params` format | Description |
 |------|-----------------|-------------|
@@ -712,16 +917,41 @@ registry:
 
 Constraints are evaluated with logical AND: all constraints MUST be
 satisfied.  The constraint count MUST NOT exceed 32.  Unknown
-constraint types default to audit-and-ignore for forward compatibility;
-deployments MAY configure strict rejection.
+constraint types MUST be rejected: a verifier that cannot interpret a
+constraint cannot establish that the constraint is satisfied.
+Forward-compatible extension is achieved through explicit scheme
+versioning and type registration, not by ignoring unknown security
+constraints.
 
-`aic.constraints` (execution boundaries) and PA `constraints`
-(authorization boundaries) are evaluated independently; there is no
-subset relationship between them.
+Constraint semantics that depend on evaluation scope or time MUST be
+unambiguous.  For `max-concurrent`, the default scope is the number of
+concurrent executions of the agent identified by this credential at
+the evaluating verifier; a deployment MAY define a different scope
+(per principal, per DA, or deployment-wide) and MUST document it.  For
+`time-window`, times are expressed in UTC at minute precision; when
+`start > end` the window crosses midnight, and `start == end` denotes
+a full 24-hour window.
+
+`aic.constraints` are credential-bound authorization constraints
+carried with the token; they are not deployment-local execution
+policy.  PA `constraints` are principal-level authorization
+boundaries.  The two are evaluated independently; there is no subset
+relationship between them.
 
 Runtime policy (timeouts, retries, rate limits, routing) MUST NOT be
 placed in `authorizationConstraints`; it remains in gateway local
-policy configuration.
+policy configuration.  The authorization layers are therefore:
+
+```
+P_aic = P_grants (AND) C_agent
+Permit_AIC(request) = CapabilityMatch(request, P_aic)
+                      (AND) ConstraintsSatisfied(request, aic.constraints)
+Permit(request) = Permit_AIC(request)
+                  (AND) GatewayPolicy(request, T_policy)
+```
+
+where `T_policy` is the deployment-local gateway or resource-server
+policy.
 
 ---
 
@@ -731,51 +961,71 @@ policy configuration.
 
 **authorized** (default): the Agent acts in its own name.  The audit
 log records `sub` (agentId) as the actor and `aic.principal.id` as the
-authorizing principal.  The capability set is locked at issuance; no
-runtime `P_grants` superset check is performed.  Narrow scope x longer
-lifetime (up to 24 hours with renewed DA on renewal).
+authorizing principal.  The effective capability set is established at issuance and
+cryptographically bound to the credential; unless a deployment
+explicitly requires dynamic grant evaluation, the verifier does not
+re-fetch or re-evaluate the principal's grants for each operation.
+Narrow scope x longer lifetime (up to 24 hours with renewed DA on
+renewal).
 
 **representative**: the Agent acts in the principal's name.  The audit
 log records `aic.principal.id` as the actor and `act.sub` (the
 agentId) as the executor.  The bundle MUST contain the principal's PA
-material.  At issuance and at runtime, `C_agent` MUST be a subset of
-`P_grants`.  Wide scope x short lifetime, with runtime `P_grants`
-intersection at each operation.
+material.  At issuance and at runtime, `C_agent` MUST be a subset of the
+principal's current grants `P_grants(t)`.  Wide scope x short
+lifetime, with runtime `P_grants(t)` intersection at each operation.
 
 ## 8.2. Permission Intersection
 
-The effective permission set is the intersection of principal grants
-and agent capabilities:
+The effective AIC authority is the intersection of principal grants
+and agent capabilities, further restricted by the token's AIC
+constraints:
 
 ```
-P_effective = P_grants (AND) C_agent
+P_aic = P_grants (AND) C_agent
+Permit_AIC(request) = CapabilityMatch(request, P_aic)
+                      (AND) ConstraintsSatisfied(request, aic.constraints)
 ```
 
-In `authorized` mode the intersection was verified at issuance and
-locked into the token.  In `representative` mode the intersection is
-computed at runtime for each operation.  Gateway local runtime policy
-(`T_policy`) is an additional enforcement layer and MUST NOT be
-confused with the `P (AND) C` intersection.
+In `authorized` mode the intersection is established at issuance
+(`P_grants(t0)`) and locked into the token.  In `representative` mode
+the intersection is computed at runtime against the principal's
+current grants `P_grants(t)` for each operation.  Gateway local
+runtime policy (`T_policy`) is an additional enforcement layer and
+MUST NOT be confused with the AIC authorization layers:
+
+```
+Permit(request) = Permit_AIC(request) (AND) GatewayPolicy(request, T_policy)
+```
 
 ## 8.3. Multi-level Delegation
 
-Single-level delegation (Principal -> Agent, `chain_depth=0`) is the
-default and recommended deployment mode.  Depth-1 chains
-(Principal -> Agent -> sub-Agent, `chain_depth=1`) are supported
-optionally; each hop produces an independently signed DA JWT whose
-signer is the delegating agent.  Capabilities are recursively
-intersected along the chain.  Any `chain_depth` MUST NOT exceed
-`max_depth`; `max_depth` MUST NOT exceed 1 as a best practice.  A
-sub-agent MUST NOT delegate further.
+Single-level delegation (Principal -> Agent, `chain_depth=0`) MUST be
+supported and is the default.  Depth-1 chains (Principal -> Agent ->
+sub-Agent, `chain_depth=1`) MAY be supported.  Multi-level delegation
+requires an explicit delegation authority at each delegating level:
+an agent may delegate only if the DA that authorized it carries an
+explicit right to delegate (for example, a may-delegate capability or
+a delegation-policy allowance with an explicit depth bound); an agent
+without that right MUST NOT sign a DA for a sub-agent.
 
-Recursive verification: starting from the presented token, verify each
-DA JWT with the signer's key (identified by the previous level's
-`principal`/`cnf`), check that declared capabilities are a subset of
-the delegator's effective capabilities, and repeat until the original
-principal or the depth limit is reached.  Cycles are prevented by
-strictly monotonic `chain_depth`; credential bomb attacks are limited
-by a gateway-configured maximum bundle size (default 8 certificates or
-equivalent tokens).
+Each hop in a supported chain produces an independently signed DA JWT.
+The signer of a hop is the delegating agent; the original principal
+remains the root authorizing party and MUST be identified separately
+from the hop signer (delegator vs. delegate vs. root principal).  The
+delegator's own DA MUST record the delegation right and the current
+`chain_depth`; capabilities are recursively narrowed along the chain.
+Verification of a hop MUST establish all of the following: the hop
+signer holds an explicit delegation authority; the delegated
+capabilities are a subset of the delegator's effective capabilities;
+`chain_depth` increases by exactly one per hop; and `chain_depth` does
+not exceed `max_depth`.  Cycles are prevented by strictly monotonic
+`chain_depth`.  Deployments SHOULD use `max_depth = 1`; larger values
+MAY be supported only with equivalent chain-size, capability-
+narrowing, and resource limits.  A sub-agent at the configured
+`max_depth` MUST NOT delegate further.  Credential bomb attacks are
+limited by a gateway-configured maximum bundle size (default 8
+certificates or equivalent tokens).
 
 ---
 
@@ -810,20 +1060,29 @@ and MUST compare it to `aic.principal.key_hash`.  The binding method is
 determined by `hash_alg`:
 
 * SPKI hash: `key_hash = base64url(hash_alg(SPKI))`, with
-  `hash_alg` defaulting to SHA-256.  Only hash algorithms with output
-  length not exceeding 64 bytes are supported (SHA-2/SHA-3 family, SM3,
-  BLAKE2/BLAKE3).
+  `hash_alg` defaulting to SHA-256.  The default binding is SHA-256
+  over the DER-encoded SPKI; additional hash algorithms MAY be
+  specified by the AIC registry.
 * JWK thumbprint: `key_hash = jkt` per RFC 7638, `hash_alg = "jkt"`.
+  The value `jkt` denotes the RFC 7638 JWK Thumbprint binding method
+  (computed with SHA-256 over the canonical JWK members); it is not
+  itself a hash algorithm name.
 
-Mismatch MUST cause rejection (fail-closed).  The same SPKI-hash
-design rationale as the X.509 profile applies: certificate renewal with
+Mismatch MUST cause rejection (fail-closed).  A successful binding
+check does not by itself establish trust in the Principal; the
+resolved key MUST also satisfy the verifier's configured trust
+policy.  The same SPKI-hash design rationale as the X.509 profile
+applies: certificate renewal with
 the same key pair preserves the binding; key rotation invalidates all
 existing delegations without broadcast revocation.
 
-## 9.3. Deployment Note: Offline Operation
+## 9.3. Cached Verification and Disconnected Deployments
 
-AIC-JWT is designed for online verification and does not claim offline
-self-contained verification.  In air-gapped deployments that still use
+AIC-JWT is designed primarily for application-layer verification with
+online or cached trust and status information; it does not claim
+offline self-contained verification (that property belongs to the
+X.509 AIC profile and its credential bundle).  In air-gapped
+deployments that still use
 the JSON profile, the verifier MUST accept the risk that a token
 revoked after its last status check may be accepted until the next
 cache refresh; mitigations include short lifetime windows (RECOMMENDED
@@ -838,8 +1097,9 @@ the `x5c` bundle path (SPKI hash of an X.509 certificate) is not
 available in browser-only deployments without a third-party ASN.1
 library or a server-side helper (Section 10.5, Mode B).  Browser
 deployments SHOULD use the JWK thumbprint form (`hash_alg: "jkt"`)
-exclusively and SHOULD rely on a server-side helper to convert any
-X.509 key material to JWK before it reaches the browser.
+exclusively.  When the originating credential is X.509-based, a
+trusted server-side component MAY perform the X.509-to-JWK conversion
+before key material reaches the browser.
 
 ---
 
@@ -848,8 +1108,9 @@ X.509 key material to JWK before it reaches the browser.
 ## 10.1. PKI Mode
 
 In PKI mode the DA is presented to a CA rather than redeemed at an
-authorization server: `aud` (Section 5.2) identifies the issuing CA or
-its relying-party domain, and the CA validates it when configured.
+authorization server: `aud` (Section 5.2) identifies the configured
+AIC issuance service that is authorized to accept the DA, and the CA
+validates it when configured.
 
 1. The Agent generates a key pair and constructs an issuance request
    containing the desired capabilities, delegation mode, constraints,
@@ -866,29 +1127,32 @@ its relying-party domain, and the CA validates it when configured.
    `exp - iat = min(requested_lifetime, local policy cap)` and `exp`
    not exceeding the DA `exp` (Section 5.1.1).
 
+Where a DA-level Agent key binding is present (a future DA claim-set
+revision aligned with the X.509 AIC DA v2), the CA MUST verify that
+the key identified by `cnf` matches that binding before signing; in
+this revision the presented Agent key is bound by `cnf` at
+consumption time.
+
 ## 10.2. OAuth Authorization Server Mode
 
-1. The principal provides consent through the standard OAuth flow
-   (authorization code with `requested_actor`, or an OBO-style flow).
+1. The principal provides consent through an applicable OAuth
+   authorization or delegation flow (for example, an authorization-code
+   flow combined with a deployment-specific actor/delegation
+   mechanism, or an OBO-style flow).
 2. The Agent presents the principal-signed DA JWT with the token
-   request.  The primary presentation is the [RFC7523] authorization
-   grant (`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`,
-   the DA JWT as the `assertion` parameter).  A `scope` parameter MAY
+   request as an [RFC7523] authorization grant
+   (`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`, the DA
+   JWT as the `assertion` parameter).  A `scope` parameter MAY
    accompany the grant but MUST NOT extend the capabilities carried in
-   the DA JWT.  In `authorized` mode the DA JWT MAY alternatively be
-   presented as a `client_assertion`/`client_assertion_type` pair: the
-   DA `sub` then equals the `agent_id`, which the AS has registered as
-   the OAuth `client_id` of that agent, satisfying RFC 7523 Section 3,
-   item 2B.  A `representative`-mode DA JWT MUST NOT be used as a
-   client assertion: its `sub` is the resource owner, not the
-   `client_id`.  In this issuance flow the client assertion
-   accompanies the authorization grant; it authenticates the agent as
-   client and does not by itself request a token.
-3. The AS validates the DA JWT as an RFC 7523 assertion: signature by
-   the principal key, `iss` equal to the principal identifier, `aud`
-   containing this AS, `exp` equal to `ts + requested_lifetime` and
-   not yet passed (subject to configured clock skew), `jti`/`nonce`
-   uniqueness, and the per-mode `sub` rules (Section 5.2).  It then
+   the DA JWT.  Client authentication at the token endpoint follows
+   standard OAuth 2.0 practice and is outside this specification.
+3. The AS validates the DA JWT under both the JWT bearer assertion
+   requirements of RFC 7523 (signature, `iss`, `aud`, and expiry) and
+   the AIC-JWT DA rules of Section 5.2: `exp` MUST equal
+   `ts + requested_lifetime` and MUST NOT have passed (subject to
+   configured clock skew); the DA identifier (`jti`/`nonce`) MUST be
+   unique within the configured replay-detection window; and the
+   per-mode `sub` rules of Section 5.2 apply.  It then
    issues the outer AIC-JWT signed with the AS key, with `exp` bounded
    per Section 5.1.1 and role placement per Section 3.2.  An AS MAY
    require the DA `sub` to equal the subject identifier it registers
@@ -898,15 +1162,15 @@ its relying-party domain, and the CA validates it when configured.
    verification and revocation.
 
 The AS MUST NOT sign the outer token without a valid principal-signed
-DA JWT (full profile), preserving the two-layer trust model.
+DA JWT (full profile), preserving the two-layer trust model.  Where a
+DA-level Agent key binding is present (a future DA claim-set revision
+aligned with the X.509 AIC DA v2), the AS MUST verify that the key
+identified by `cnf` matches that binding before signing; in this
+revision the presented Agent key is bound by `cnf` at consumption
+time.
 
 If the DA JWT is invalid or cannot be validated, the AS MUST return
-the `invalid_grant` error as required by RFC 7523 Section 3.1.  Where
-the DA JWT is presented as a client assertion and client
-authentication fails, the AS MUST return `invalid_client` per RFC 7523
-Section 3.2.  If client credentials are included in the request in
-addition to the assertion, the AS MUST validate them (RFC 7523
-Section 3.1).
+the `invalid_grant` error as required by RFC 7523 Section 3.1.
 
 Where the accountable operator of the agent differs from the resource
 owner (for example an enterprise-operated agent acting on an end
@@ -922,32 +1186,20 @@ token directly from principal consent recorded in the issuance
 process.  This profile mirrors the consumer model of the X.509
 specification and MUST NOT be used in `representative` mode.
 
+The lightweight profile does not provide the cryptographic principal
+authorization attestation of the full profile; its trust depends on
+the issuer's authenticated consent-recording process.  A token
+without a `da` claim is valid only under this profile and MUST NOT be
+accepted under full-profile validation, which requires the `da` claim
+(Section 5.1.3).
+
 ## 10.4. Token Exchange Usage
 
-An AIC-JWT MAY be produced or consumed through [RFC8693] token
-exchange:
-
-* `subject_token`: the principal's credential (e.g., an OAuth access
-  token or a principal-bound JWT);
-* `actor_token`: the Agent's AIC-JWT (or a workload identity token);
-* `subject_token_type` / `actor_token_type`: the registered token
-  types, including `urn:ietf:params:oauth:token-type:aic+jwt` for
-  AIC-JWT.
-
-The exchanged token SHALL carry the AIC claims of the actor and the
-intersection of the actor's capabilities with the subject's grants.
-
-Role mapping in the exchanged token follows the AIC authorized-mode
-semantics rather than the RFC 8693 default shape: the issued token
-keeps the agent as `sub` (with the authorizing principal in
-`aic.principal`) and the capability set is the intersection above.
-The `subject_token` is a grants source, not the issued token's
-subject; an RP that requires a resource-owner-subject token MUST use
-the representative issuance path (Section 10.2) instead.  A
-`representative`-mode AIC-JWT MUST NOT be used as an `actor_token`:
-its `sub` is the resource owner, so it is not an actor credential.
-This deviation from the RFC 8693 subject/actor mapping is intentional
-and this section is normative for AIC-JWT deployments.
+This section is informative.  Deployments that already use [RFC8693]
+MAY carry an AIC-JWT as an actor or subject token.  Role mapping
+follows RFC 8693; AIC claims are carried in the token unchanged.  This
+specification does not alter RFC 8693 semantics and does not define an
+RFC 8693 profile for AIC-JWT.
 
 ## 10.5. Deployment Architectures
 
@@ -970,9 +1222,10 @@ cross-checks.  The helper MAY translate X.509 AIC credentials into
 AIC-JWTs (Section 10.6) or expose principal keys as JWKs so that
 browser verifiers only ever handle JWK material.
 
-**Mode C - PKI (X.509) mode.**  The original
-[AIC] profile with mTLS is used; the JSON
-profile is not.
+**Mode C - PKI (X.509) mode.**  The X.509 AIC profile with mTLS is
+used as the primary carrier; an AIC-JWT MAY still be generated as an
+application-layer representation when an application protocol requires
+it (Section 10.6).
 
 ## 10.6. X.509 AIC Interoperability
 
@@ -981,20 +1234,21 @@ equivalences apply:
 
 * key binding: `aic.principal.key_hash` with a SHA-2 `hash_alg`
   (SPKI hash) and the [RFC7638] JWK thumbprint of the same key are two
-  encodings of the same binding; a helper MAY convert a presented
-  X.509 certificate to a JWK and a verifier MAY accept either form;
+  interoperable representations of a public key binding for the same
+  underlying key; a helper MAY convert a presented X.509 certificate
+  to a JWK and a verifier MAY accept either form;
 * DelegationAuthorization: the ASN.1 DelegationAuthTBS and the DA JWT
-  payload carry the same ten AIC fields; the DA JWT additionally
-  carries the RFC 7523 claims `iss`, `sub`, `aud`, `exp`, `iat`, and
-  `jti`, which have no ASN.1 counterpart in the X.509 profile.  A PKI
-  helper MAY translate between the two for issuance, verification, or
-  audit;
+  payload carry the AIC DelegationAuthorization semantic fields
+  defined by [AIC]; the DA JWT additionally carries the RFC 7523
+  claims `iss`, `sub`, `aud`, `exp`, `iat`, and `jti`, which have no
+  ASN.1 counterpart in the X.509 profile.  A PKI helper MAY translate
+  between the two for issuance, verification, or audit;
 * PrincipalAuthorization: the ASN.1 extension and the PA JWT carry the
   same grants, constraints, and delegation policy;
 * issuance: a server-side helper MAY accept an X.509 AIC credential
-  bundle and issue the equivalent AIC-JWT (Mode B), so that a single
-  authorization can be presented at the transport layer (mTLS) and at
-  the application layer (Bearer) with identical semantics.
+  bundle and issue the equivalent AIC-JWT (Mode B), so that the same
+  authorization semantics can be enforced at the transport layer
+  (mTLS) and at the application layer (Bearer).
 
 Interoperability between the two profiles is a deployment mechanism,
 not a new token format; both profiles share the data model defined by
@@ -1007,12 +1261,22 @@ not a new token format; both profiles share the data model defined by
 The verifier/gateway MUST execute the following steps in order after
 receiving the AIC-JWT and bundle:
 
-1. **JWS verification**: verify the outer signature using the issuer's
-   key resolved from `kid` (JWKS or `x5c`), per RFC 7515.
-2. **Header checks**: validate `typ == "aic+jwt"`, `alg` in the
-   allowlist, and reject `none` and symmetric algorithms (RFC 8725).
+1. **Header checks**: validate `typ == "aic+jwt"`, `alg` in the
+   deployment allowlist, and reject `none` and symmetric algorithms
+   (RFC 8725).  The verifier MUST NOT select a cryptographic
+   verification method based on an algorithm value outside the
+   allowlist.
+2. **JWS verification**: resolve the issuer's verification key from
+   `kid` (JWKS or `x5c`) and verify the outer JWS signature per RFC
+   7515 using the confirmed algorithm.  When `x5c` is present, the
+   certificate chain MUST be validated against the verifier's
+   configured trust policy and the resulting public key MUST
+   correspond to the expected AIC issuer; a certificate carried in
+   `x5c` does not by itself establish trust.
 3. **Time checks**: `nbf <= now <= exp` (with deployment-configured
-   clock skew); `exp - iat <= requested_lifetime <= 86400`.
+   clock skew); `exp - iat <= requested_lifetime` and
+   `requested_lifetime <= 86400`.  The outer AIC-JWT MAY have a
+   shorter effective lifetime than the DA.
 4. **DA validation** (full profile): verify the inner DA JWT signature
    with the principal key material (credential bundle, online JWKS, or
    a locally cached copy); check `key_hash` against that key material;
@@ -1044,11 +1308,16 @@ receiving the AIC-JWT and bundle:
    certificate from the bundle; verify `allowed_mode` permits
    representative delegation; verify `C_agent` is a subset of
    `P_grants` (with parameter intersection per Section 6.3).
-7. **Constraint evaluation**: evaluate `aic.constraints` with AND
-   semantics (IP ranges, concurrency, time windows), then PA
-   constraints independently.  Constraint evaluation precedes
+7. **Delegation depth check**: verify `chain_depth <= max_depth`
+   and, for multi-level chains (Section 8.3), that depth increases by
+   exactly one per hop and that each hop's delegated capabilities are
+   a subset of the delegator's effective capabilities:
+   `C_n <= C_(n-1) <= ... <= P_grants`.  No hop may expand authority.
+8. **Constraint evaluation**: the effective constraint set is the
+   conjunction of all applicable `aic.constraints` and, in
+   `representative` mode, PA constraints; a request MUST satisfy
+   every applicable constraint.  Constraint evaluation precedes
    capability evaluation for fast rejection.
-8. **Delegation depth check**: verify `chain_depth <= max_depth`.
 9. **Capability evaluation**: route the capability required by the
    current request to the scheme plugin registered for its `scheme`.
    Unknown schemes or unknown capabilities MUST be rejected
@@ -1059,6 +1328,13 @@ receiving the AIC-JWT and bundle:
     is valid.
 11. **Decision**: if all steps pass, permit; otherwise deny and log
     sufficient diagnostic information for audit.
+
+Verification MUST NOT expand any authorization property.  In
+particular: effective capabilities are a subset of the principal
+grants (and of each delegator's capabilities in a chain); effective
+expiry does not exceed the DA `exp` or the deployment's maximum
+lifetime; `chain_depth` does not exceed `max_depth`; and every
+applicable constraint is satisfied.
 
 ---
 
@@ -1086,7 +1362,7 @@ Payload:
   "aud": ["https://gw.example.com"],
   "iat": 1755500000,
   "exp": 1755503500,
-  "jti": "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef",
+  "jti": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
   "cnf": { "jkt": "0ZcOCORZNYy-DWpqq30jZyHnXgk7dNsQo0c1V3iR4vY" },
   "aic": {
     "ver": 1,
@@ -1132,7 +1408,7 @@ Payload:
   "aud": "https://ca.example.com/aic",
   "exp": 1755503500,
   "iat": 1755499900,
-  "jti": "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef",
+  "jti": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
   "agent_id": "agent:db-analyst-01",
   "principal": {
     "realm": "corp.com",
@@ -1153,7 +1429,7 @@ Payload:
   ],
   "requested_lifetime": 3600,
   "ts": 1755499900,
-  "nonce": "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef"
+  "nonce": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA"
 }
 ```
 
@@ -1169,9 +1445,12 @@ unexpected `typ` values.  AIC-JWT MUST always be asymmetric.
 
 ## 13.2. Token Theft and Replay
 
-AIC-JWT is a bearer token by default.  Deployments MUST use TLS.  The
-token MUST carry `cnf` binding it to the Agent key, and deployments
-SHOULD additionally use DPoP [RFC9449] to prevent token theft and
+AIC-JWT is not inherently sender-constrained: in a deployment that
+does not enforce proof of possession, a party in possession of the
+token can use it as a bearer credential until expiry.  Deployments
+MUST use TLS.  The token MUST carry `cnf` binding it to the Agent
+key, and deployments SHOULD additionally use DPoP [RFC9449] (or an
+equivalent proof-of-possession mechanism) to prevent token theft and
 replay.  Where higher assurance is required, the AS MAY challenge the principal with step-up authentication [RFC9470] before issuing or refreshing tokens.  Where mTLS is deployed, the verifier MAY cross-check the mTLS
 client certificate key against `cnf` (Section 3.3).  Replay is
 additionally bounded by the DA `nonce`/`jti` uniqueness check at
@@ -1180,9 +1459,10 @@ DA JWT, not a plaintext parameter.
 
 ## 13.3. Audience Confusion
 
-The `aud` claim MUST be validated per RFC 9068.  Issuers MUST use
-distinct issuer identifiers per trust domain (RFC 9207) so that a token
-issued by one AS cannot be accepted by another.
+The `aud` claim MUST be validated per [RFC7519] and the deployment's
+audience policy.  Issuers MUST use distinct issuer identifiers per
+trust domain (RFC 9207) so that a token issued by one AS cannot be
+accepted by another.
 
 ## 13.4. Nested Token Confusion
 
@@ -1212,7 +1492,12 @@ The threat model of the X.509 AIC specification applies:
 * compromised Principal (key leak): mitigated by SPKI-hash binding --
   key rotation invalidates all existing delegations;
 * compromised CA/AS: mitigated by the two-layer signature -- the
-  attacker still cannot forge a principal-signed DA JWT.
+  attacker still cannot forge a principal-signed DA JWT.  A
+  compromised issuer could re-issue an outer token with a different
+  `cnf` key; DA-level Agent key binding (a future DA claim-set
+  revision) closes this gap, and deployments that require
+  principal-to-key binding MUST constrain issuance policy accordingly
+  until that binding is available.
 
 ## 13.7. Size Limits
 
@@ -1304,20 +1589,22 @@ registry:
 |-------|-------------|
 | `aic` | AIC-JWT namespaced claims object |
 | `da` | Principal-signed DelegationAuthorization JWT |
-| `aic+da` (inner payload members) | DelegationAuthTBS equivalent, plus the RFC 7523 claims `iss`, `sub`, `aud`, `exp`, `iat`, `jti` |
-| `aic+pa` (payload members) | PrincipalAuthorization equivalent |
+| members of the DA JWT payload | AIC delegation fields plus the RFC 7523 claims `iss`, `sub`, `aud`, `exp`, `iat`, `jti` |
+| members of the PA JWT payload | PrincipalAuthorization fields |
+
+Members of the DA and PA JWT payloads are namespaced member names
+carried inside those JWTs; they are not registered as standalone
+top-level JWT claims.
 
 ## 15.3. OAuth Token Type URN
 
-Register `urn:ietf:params:oauth:token-type:aic+jwt` for use with RFC
-[RFC8693] token exchange and [RFC7523] assertions.
+This document does not request registration of an OAuth token type
+URN.
 
 ## 15.4. OAuth Authorization Server Metadata
 
-Consider registering metadata entries indicating AIC-JWT support, such
-as `aic_jwt_supported` and `aic_jwt_profiles_supported`
-(`pki` | `oauth-as`), following the OAuth Authorization Server Metadata
-specification.
+This document does not request any OAuth Authorization Server
+Metadata entries.
 
 ---
 
@@ -1378,7 +1665,7 @@ Challenge Protocol", RFC 9470, September 2023.
 draft-ietf-oauth-status-list-21, June 2026.
 
 [AIC] Wei, J., "AI Agent Identity Certificate (AIC) X.509 v3
-Extension", draft-wei-aic-identity-cert-00, August 2026.
+Extension", draft-wei-aic-identity-cert-01, August 2026.
 
 ---
 
@@ -1391,11 +1678,8 @@ draft-mishra-oauth-agent-grants-01, March 2026.
 Authorization for AI Agents", draft-oauth-ai-agents-on-behalf-of-
 user-02, August 2025.
 
-[WIMSE] Campbell, B., et al., "WIMSE Service to Service
-Authentication", draft-ietf-wimse-s2s-protocol, work in progress.
-
 [ATN] Somoza, J., "ATN Agent Trust Negotiation",
-draft-somoza-atn-agent-trust-negotiation, work in progress.
+draft-somoza-atn-agent-trust-negotiation-01, May 2026.
 
 [PEDIGREE] Rampalli, V., "PEDIGREE Verifiable Delegated Identity",
 draft-rampalli-pedigree, work in progress.
@@ -1452,7 +1736,8 @@ Projection rules for interoperable deployments:
   signature) is preserved in AIC-JWT and is NOT represented in the 11
   profile; verifiers requiring principal non-repudiation MUST use the
   `da` claim;
-* the AIC-JWT `iss` remains the OAuth/RFC 9068 issuer URL; JWT-SVID
+* the AIC-JWT `iss` is the issuer identifier per [RFC7519] (in OAuth
+  AS deployments, the OAuth issuer URL); JWT-SVID
   validators do not process `iss` -- the trust domain is anchored by
   the `sub` SPIFFE ID and the SPIFFE bundle used for signature
   verification.  Deployments requiring RFC 9068 conformance MUST NOT
@@ -1495,15 +1780,24 @@ this specification:
   (go test ./...).
 * A TypeScript/WebCrypto reference implementation implements the same
   pipeline for browser-compatible runtimes, including EdDSA and
-  RSA-PSS coverage with feature detection.  Test suite: 15 cases, all
-  passing (node --test ts/aicjwt.test.ts).
+  RSA-PSS coverage with feature detection.  Test suites pass: the
+  TypeScript unit suite (node --test ts/aicjwt.test.ts), the demo
+  scenario suite (npm test), and tsc --noEmit for the TypeScript
+  sources; the Go suites also pass under go test -race.
 
 The Go core is maintained in github.com/varwof/types (package
 types/aicjwt); the wrapper, OAuth protocol-layer simulation, and the
 TypeScript/WebCrypto implementation are in
-https://github.com/varwof/aic-jwt.  Findings verified by these
+https://github.com/varwof/aic-jwt/.  Findings verified by these
 implementations are incorporated in Sections 6.2, 9.4, 10.5, 10.6,
 11, and 13.8.
+
+Release state (2026-09-06): the RFC 7523 claims/role model defined by
+this revision (DA ver=2) is implemented in the types release v0.5.2
+(https://github.com/varwof/types/tree/v0.5.2) and the aic-jwt
+repository
+(https://github.com/varwof/aic-jwt/).
+Earlier revisions of this draft pinned the types v0.3.1 release.
 
 ---
 
@@ -1514,73 +1808,64 @@ identity and accountability frameworks.
 
 # Change Log
 
-draft-wei-aic-jwt-01 (2026-09-05):
+draft-wei-aic-jwt-01 (2026-09-05; revised 2026-09-08):
 
-* The DA JWT now carries the RFC 7523 claims `iss`, `sub`, `aud`,
-  `exp` and `jti` (jti = nonce; exp = ts + requested_lifetime), making
-  the Section 10.2 jwt-bearer presentation interoperable (resolves
-  review by I. Schrock, OAuth WG, 2026-09-04).
+* The DA JWT carries the RFC 7523 claims `iss`, `sub`, `aud`,
+  `exp` and `jti` (jti = nonce; exp = ts + requested_lifetime),
+  making the Section 10.2 jwt-bearer presentation interoperable
+  (resolves review by I. Schrock, OAuth WG, 2026-09-04).
 * Role placement is mode-dependent: representative mode places the
-  resource owner / principal in `sub` and the agent in `act` (RFC 8693
-  actor / OAuth client); authorized mode places the agent in `sub` as
-  the authorized accessor (RFC 7523 Section 3, item 2A).  The X.509
-  convention that the certificate subject is the agent is retained in
-  authorized mode only and stated as such (resolves review by J.
-  Lombardo, OAuth WG, 2026-09-04).
+  resource owner / principal in `sub` and the agent in `act` (RFC
+  8693 actor / OAuth client); authorized mode places the agent in
+  `sub` as the authorized accessor (RFC 7523 Section 3, item 2A).
+  The X.509 convention that the certificate subject is the agent is
+  retained in authorized mode only and stated as such (resolves
+  review by J. Lombardo, OAuth WG, 2026-09-04).
 * A deployment whose accountable operator differs from the resource
   owner MUST represent the operator separately; recorded as future
   work.
-* Token exchange mapping clarified (Section 10.4): the exchanged token
-  keeps authorized-mode AIC semantics (agent as `sub`, principal in
-  `aic.principal`); a representative-mode token is rejected as an
-  `actor_token`; operator binding remains future work.
-* DA `ver` bumped to 2 for the -01 claim set; `ver=1` is the -00 shape
-  and is rejected, making the schema break explicit.
-* Reference implementations (Go and TypeScript/WebCrypto) updated with
-  regression tests for the claims and role model above.
-* RFC 7523 conformance completion: jwt-bearer grant is the primary
-  token-endpoint presentation and client-assertion use is restricted
-  to authorized mode (Section 10.2); `invalid_grant` /
-  `invalid_client` error handling and client-credential validation
-  stated (Section 10.2); the outer `exp` is bounded by the DA `exp`
-  (Section 5.1.1); DA `aud` and multi-level recursion added to the
-  validation pipeline (Section 11); the Section 12 examples updated
-  to the -01 claims set; cross-references and ASN.1 mapping table
-  corrected.
+* DA `ver` bumped to 2 for the -01 claim set; `ver=1` is the -00
+  shape and is rejected, making the schema break explicit.
+* Positioning tightened (2026-09-08): AIC-JWT is the JWT carrier of
+  the AIC semantic model; the document does not define an RFC 9068
+  access-token profile, does not modify RFC 8693, and does not
+  redefine AIC semantics.  The DA JWT is carried as the value of the
+  top-level `da` claim (Section 5.1.3).
+* OAuth scope trimmed (2026-09-08): RFC 7523 authorization-grant
+  presentation is the only normative OAuth consumption profile;
+  RFC 8693, DPoP, Token Status Lists, RFC 9068 and related
+  mechanisms are deployment-specific; client-assertion presentation
+  was removed; OAuth token type URN and Authorization Server
+  Metadata registrations are no longer requested; the token-exchange
+  section is informative; error handling at the token endpoint
+  follows RFC 7523 Section 3.1 (`invalid_grant`).
+* PA signing decided (2026-09-08): in pure-JSON/OAuth deployments
+  the PA JWT is signed by the issuer that attests the principal
+  identity; in PKI deployments the PrincipalAuthorization is carried
+  in the principal's X.509 certificate.
+* Validation and constraints tightened (2026-09-08): header checks
+  precede JWS verification; unknown constraint types MUST be
+  rejected; capability subset semantics are scheme-defined;
+  multi-level delegation requires an explicit delegation authority;
+  the DA nonce is the unpadded base64url encoding of exactly 32
+  octets; examples corrected accordingly.
+* Wording alignment (2026-09-08): clarified that AIC-JWT is not
+  inherently sender-constrained and requires an enforced
+  proof-of-possession mechanism for sender binding (Section 13.2);
+  constraint types in Section 7 are described as the initial defined
+  set rather than examples; "self-contained credential" is qualified
+  to distinguish token-carried authorization claims from offline
+  self-contained verification (Sections 3.2 and 9.3).
 
-draft-wei-aic-jwt-00 (2026-08-24, revision 5):
+* Reference implementations (Go and TypeScript/WebCrypto) updated
+  with regression tests for the claims and role model above.
 
-* Section 18: clarified that the AIC-JWT `iss` remains the OAuth URL
-  and is not processed by JWT-SVID validators (trust domain is anchored
-  by `sub` + SPIFFE bundle); added the SPIFFE-mode `sub` inheritance
-  rule, the key dual-publication rule (OAuth JWKS + JWT-SVID bundle
-  entry) and the `typ` projection rule.
+draft-wei-aic-jwt-00 (2026-08-24):
 
-draft-wei-aic-jwt-00 (2026-08-24, revision 4):
-
-* Added PS384 and PS512 to the algorithm allowlist (Section 4.5) to
-  align with the SPIFFE JWT-SVID algorithm set; EdDSA remains a MAY
-  extension beyond the JWT-SVID set.
-
-draft-wei-aic-jwt-00 (2026-08-23, revision 3):
-
-* Added compatibility mapping with the Varwof Unified JWT Profile
-  (Section 18), keeping AIC-JWT interoperable with SPIFFE JWT-SVID and
-  RFC 9068 projections.
-
-draft-wei-aic-jwt-00 (2026-08-23, revision 2):
-
-* Clarified the two-level capability matching algorithm (Section 6.2).
-* Clarified that DA nonce uniqueness is enforced at issuance and MUST
-  NOT be treated as single-use by the verifier (Section 11).
-* Added deployment architectures, including pure OAuth/JSON, hybrid
-  server-side PKI helper, and X.509 interoperability (Sections
-  10.5-10.6).
-* Added browser key-material guidance (Section 9.4) and WebCrypto
-  runtime constraints (Section 13.8).
-* Added implementation status for the Go and TypeScript/WebCrypto
-  reference implementations.
-
-draft-wei-aic-jwt-00 (2026-08-23):
-
-* Initial individual draft.
+* Initial individual submission.  Established AIC-JWT as the JWT
+  application-layer representation of the AIC X.509 model: an
+  issuer-signed outer token carrying a principal-signed DA JWT,
+  capability and constraint containers, RFC 7523 authorization-grant
+  presentation, DA nonce replay controls, deployment architectures,
+  and projections to SPIFFE JWT-SVID and RFC 9068 views (including
+  the SPIFFE-aligned algorithm allowlist and `typ` projection rules).

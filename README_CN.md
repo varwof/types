@@ -36,7 +36,8 @@ go get github.com/varwof/types@v0.1.0
 | `AIC` | Agent Identity Certificate 扩展结构 |
 | `Capability` | 能力声明（schemeId + capabilityId） |
 | `PrincipalUid` | 主体标识（SPKI 公钥哈希） |
-| `DelegationAuthorization` | 委托授权签名 |
+| `DelegationAuthorization` | 委托授权签名；v2 增加 `AgentKeyBinding`（agent SPKI 哈希绑定） |
+| `SupervisionEvent` | 统一监督事件（事前/事中/事后：consent/denied/step_up/approval/break_glass/override） |
 | `PrincipalAuthorization` | 主体授权策略 |
 
 types 是 varwof 生态的**类型基础层**。本项目是 [Open Invention Network](https://openinventionnetwork.com/) 成员。

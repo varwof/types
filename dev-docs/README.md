@@ -30,6 +30,7 @@ Type sharing method: `core` and `gateway-core` reference this module through Go 
 | `sm3.go` | SM3 national standard hash pure Go implementation (GB/T 32905-2016) | `NewSM3`, `SM3Sum` |
 | `gs.go` | GatewaySessionExtension (legacy type, retained for non-AIC use cases) | `GatewaySessionExtension`, `KeyDerivationParams` |
 | `match_priority.go` | Five-level priority matching engine | `MatchCapabilityPriority`, `MatchCapabilityRules`, `CapabilityRule` |
+| `supervision.go` | Unified supervision event type, constants, and validation | `SupervisionEvent`, `SupervisionEventType`, `ValidateSupervisionEvent` |
 
 ## Version Evolution
 
@@ -39,6 +40,7 @@ Type sharing method: `core` and `gateway-core` reference this module through Go 
 | v1.5 | `roles` field removed from PA (now carried by certificate OU); `GatewaySession` moved from AIC standalone extension to `executionConstraints` runtime |
 | v1.7.1 | `DelegationAuthorization` required; `Reason` field added (reasonCode + description); `requestedLifetime` required with range 3600-86400; `nonce` required 32 bytes |
 | v1.7.2 | `DelegationDepthControl` OID reserved (FUTURE, not currently implemented) |
+| v2.x | DA v2: `DelegationAuthTBS.Version = 2` with trailing `[1] EXPLICIT AgentKeyBinding` (agent SPKI hash); bindings optional on v1 / required on v2 |
 
 ## ASN.1 Encoding Conventions
 

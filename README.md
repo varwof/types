@@ -41,9 +41,10 @@ go get github.com/varwof/types@v0.1.0
 | `AIC` | Agent Identity Certificate extension structure |
 | `Capability` | Capability declaration (schemeId + capabilityId) |
 | `PrincipalUid` | Principal identifier (SPKI public key hash) |
-| `DelegationAuthorization` | Delegation authorization signature (timestamp + nonce) |
+| `DelegationAuthorization` | Delegation authorization signature (timestamp + nonce); v2 adds `AgentKeyBinding` (agent SPKI hash) |
 | `PrincipalAuthorization` | Principal authorization policy |
 | `GatewaySessionExtension` | Gateway session execution constraints |
+| `SupervisionEvent` | Unified pre/mid/post-operation supervision record (consent/denied/step_up/approval/break_glass/override) |
 | `MatchCapability` | Capability glob pattern matching |
 | `ValidateAIC` | AIC validation |
 

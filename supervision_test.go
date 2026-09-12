@@ -56,7 +56,7 @@ func TestValidateSupervisionEventOK(t *testing.T) {
 	// Minimal event: only required fields, optional DaHash left empty.
 	min := &pki.SupervisionEvent{
 		Type:     pki.SupervisionDenied,
-		Source:   "aicnative",
+		Source:   "aic-verifier",
 		Actor:    "lisi",
 		Decision: pki.SupervisionDecisionDenied,
 		Ts:       time.Now().UTC(),

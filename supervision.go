@@ -8,9 +8,9 @@ import (
 // Supervision events: the unified pre/post/mid-operation supervision schema for
 // the AIC SDK (design draft aic-sdk-监督接口设计-事前事中事后, §5).
 //
-// This type is shared between aic-client (pre-operation: DA consent / denial)
-// and aicnative (mid/post-operation: runtime approval, break-glass, override,
-// step-up) so that aic-client never needs to import aicnative.  Events are
+// This type is shared between aic-agent (pre-operation: DA consent / denial)
+// and aic-verifier (mid/post-operation: runtime approval, break-glass, override,
+// step-up) so that aic-agent never needs to import aic-verifier.  Events are
 // reconciled across stages by the two correlation keys:
 //
 //	operation_id — server-side per-request identifier (mid/post-operation);
@@ -48,12 +48,12 @@ func (t SupervisionEventType) Valid() bool {
 	}
 }
 
-// SupervisionEvent is the unified supervision record shared by aic-client
-// (pre-operation) and aicnative (mid/post-operation).  Optional fields are
+// SupervisionEvent is the unified supervision record shared by aic-agent
+// (pre-operation) and aic-verifier (mid/post-operation).  Optional fields are
 // omitted from JSON when empty.
 type SupervisionEvent struct {
 	Type        SupervisionEventType `json:"type"`
-	Source      string               `json:"source"` // user-signer | aicnative | admin-console
+	Source      string               `json:"source"` // user-signer | aic-verifier | admin-console
 	OperationID string               `json:"operation_id,omitempty"`
 	DaHash      string               `json:"da_hash,omitempty"` // sha256 hex (64 lowercase chars)
 	AgentID     string               `json:"agent_id,omitempty"`

@@ -20,7 +20,7 @@ import pki "github.com/varwof/types"
 
 aic, err := pki.ParseAIC(cert)
 err = pki.ValidateAIC(aic)
-matched := pki.MatchCapability("oracle/mysql:query:users", "oracle/*:query:*")
+matched := pki.MatchCapability("acme/mysql-v1:query:users", "acme/mysql-v1:query:*")
 ```
 
 ## 安装

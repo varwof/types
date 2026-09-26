@@ -1,7 +1,6 @@
 # varwof-types
 
-> ⭐ Like this repo? Give a star to the flagship one:
-> [![GitHub stars](https://img.shields.io/github/stars/varwof/core?style=social&label=varwof/core)](https://github.com/varwof/core)
+> Part of the Varwof AIC suite — flagship repos: [aic-agent](https://github.com/varwof/aic-agent) · [aic-verifier](https://github.com/varwof/aic-verifier) · [aic-exec](https://github.com/varwof/aic-exec)
 
 > Shared type definitions for AIC / Capability / PrincipalUid / DelegationAuthorization in the varwof PKI suite.
 

@@ -2,7 +2,7 @@
 
 > Part of the Varwof AIC suite — flagship repos: [aic-agent](https://github.com/varwof/aic-agent) · [aic-verifier](https://github.com/varwof/aic-verifier) · [aic-exec](https://github.com/varwof/aic-exec)
 
-> Shared type definitions for AIC / Capability / PrincipalUid / DelegationAuthorization in the varwof PKI suite.
+> Shared type definitions for AIC / Capability / PrincipalUid / DelegationAuthorization in the varwof PKI suite, including the AIC-JWT Delegation Authorization claim set (`da.ver=3`).
 
 > ⚠️ **Preview** — Not for production use. APIs and features may change before official release.
 
@@ -33,7 +33,7 @@ matched := pki.MatchCapability("acme/mysql-v1:query:users", "acme/mysql-v1:query
 ## Installation
 
 ```bash
-go get github.com/varwof/types@v0.1.0
+go get github.com/varwof/types@v0.7.0
 ```
 
 ## Core Types
@@ -43,18 +43,32 @@ go get github.com/varwof/types@v0.1.0
 | `AIC` | Agent Identity Certificate extension structure |
 | `Capability` | Capability declaration (schemeId + capabilityId) |
 | `PrincipalUid` | Principal identifier (SPKI public key hash) |
-| `DelegationAuthorization` | Delegation authorization signature (timestamp + nonce); v2 adds `AgentKeyBinding` (agent SPKI hash) |
+| `DelegationAuthorization` | Delegation authorization signature (timestamp + nonce); DA version 2 carries the principal-signed `AgentKeyBinding` (agent SPKI hash) in `DelegationAuthTBS` - v1 must omit it, v2 must carry it, and newly issued DAs are v2 |
 | `PrincipalAuthorization` | Principal authorization policy |
 | `GatewaySessionExtension` | Gateway session execution constraints |
 | `SupervisionEvent` | Unified pre/mid/post-operation supervision record (consent/denied/step_up/approval/break_glass/override) |
 | `MatchCapability` | Capability glob pattern matching |
 | `ValidateAIC` | AIC validation |
 
+### Delegation Authorization versions
+
+The two carriers use different version numbers for the same Delegation
+Authorization lineage (AIC-JWT -02 Section 5.4):
+
+| Carrier | Current | Legacy | Agent-key binding |
+|---|---|---|---|
+| X.509 AIC (`DelegationAuthTBS.version`) | v2 | v1 | `AgentKeyBinding`: `keyHash` = `hashAlgo(agent SPKI)`, hash algorithm defaults to SHA-256; required in v2, must be absent in v1 |
+| AIC-JWT (`da.ver`) | 3 | 2 | `agent_key_binding`: `{hash_alg, key_hash}` with `key_hash` = base64url(`hash_alg(SPKI DER)`); required in `da.ver=3`, must be absent in `da.ver=2` |
+
+Mapping: X.509 AIC DA v1 <-> JWT `da.ver=2`; X.509 AIC DA v2 <-> JWT
+`da.ver=3`.  Newly issued delegations use the current version in both
+carriers, and any other version value is rejected.
+
 ## Sub-packages
 
 | Package | Description |
 |---------|-------------|
-| `aicjwt` | AIC-JWT (`draft-wei-aic-jwt-00`) claims model, JWS sign/verify, 11-step validation pipeline |
+| `aicjwt` | AIC-JWT (`draft-wei-aic-jwt-02`) DA claim set (`da.ver=3` with `agent_key_binding`; `da.ver=2` is the legacy claim set), JWS sign/verify, 11-step validation pipeline |
 
 ## Ecosystem
 
@@ -81,8 +95,8 @@ types is the **type foundation layer** of the varwof ecosystem. This project is 
 | Homepage | https://varwof.com |
 | Community | https://varwof.org |
 | IETF Draft | [draft-wei-aic-identity-cert](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/) |
-| AIC X.509 (docs) | [draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md) (also `.xml` / `.txt` / `.html`) |
-| AIC-JWT (docs) | [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`) |
+| AIC X.509 (docs) | [draft-wei-aic-identity-cert-02.md](docs/draft-wei-aic-identity-cert-02.md) (also `.xml` / `.txt` / `.html`) |
+| AIC-JWT (docs) | [draft-wei-aic-jwt-02.md](docs/draft-wei-aic-jwt-02.md) (also `.xml` / `.txt` / `.html`) |
 | License | Apache-2.0 |
 | Member | [Open Invention Network](https://openinventionnetwork.com/) |
 

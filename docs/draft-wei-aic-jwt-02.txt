@@ -145,20 +145,20 @@ Internet-Draft                   AIC-JWT                    October 2026
      8.3.  Multi-level Delegation  . . . . . . . . . . . . . . . . .  27
    9.  Credential Bundle (Optional)  . . . . . . . . . . . . . . . .  28
      9.1.  Bundle Composition  . . . . . . . . . . . . . . . . . . .  28
-     9.2.  Principal Binding Check . . . . . . . . . . . . . . . . .  28
+     9.2.  Principal Binding Check . . . . . . . . . . . . . . . . .  29
      9.3.  Cached Verification and Disconnected Deployments  . . . .  29
-     9.4.  Browser Key Material  . . . . . . . . . . . . . . . . . .  29
-   10. Issuance Flows  . . . . . . . . . . . . . . . . . . . . . . .  29
-     10.1.  PKI Mode . . . . . . . . . . . . . . . . . . . . . . . .  29
-     10.2.  OAuth Authorization Server Mode  . . . . . . . . . . . .  30
-     10.3.  Lightweight Consumer Profile . . . . . . . . . . . . . .  31
-     10.4.  Token Exchange Usage . . . . . . . . . . . . . . . . . .  31
+     9.4.  Browser Key Material  . . . . . . . . . . . . . . . . . .  30
+   10. Issuance Flows  . . . . . . . . . . . . . . . . . . . . . . .  30
+     10.1.  PKI Mode . . . . . . . . . . . . . . . . . . . . . . . .  30
+     10.2.  OAuth Authorization Server Mode  . . . . . . . . . . . .  31
+     10.3.  Lightweight Consumer Profile . . . . . . . . . . . . . .  32
+     10.4.  Token Exchange Usage . . . . . . . . . . . . . . . . . .  32
      10.5.  Deployment Architectures . . . . . . . . . . . . . . . .  32
-     10.6.  X.509 AIC Interoperability . . . . . . . . . . . . . . .  32
+     10.6.  X.509 AIC Interoperability . . . . . . . . . . . . . . .  33
    11. Validation Pipeline . . . . . . . . . . . . . . . . . . . . .  33
    12. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  35
      12.1.  Outer AIC-JWT  . . . . . . . . . . . . . . . . . . . . .  35
-     12.2.  Inner DA JWT . . . . . . . . . . . . . . . . . . . . . .  35
+     12.2.  Inner DA JWT . . . . . . . . . . . . . . . . . . . . . .  36
    13. Security Considerations . . . . . . . . . . . . . . . . . . .  36
      13.1.  Algorithm Confusion  . . . . . . . . . . . . . . . . . .  36
      13.2.  Token Theft and Replay . . . . . . . . . . . . . . . . .  36
@@ -170,27 +170,27 @@ Wei                       Expires 5 April 2027                  [Page 3]
 Internet-Draft                   AIC-JWT                    October 2026
 
 
-     13.3.  Audience Confusion . . . . . . . . . . . . . . . . . . .  36
-     13.4.  Nested Token Confusion . . . . . . . . . . . . . . . . .  36
+     13.3.  Audience Confusion . . . . . . . . . . . . . . . . . . .  37
+     13.4.  Nested Token Confusion . . . . . . . . . . . . . . . . .  37
      13.5.  Principal Key Binding  . . . . . . . . . . . . . . . . .  37
      13.6.  Threat Model . . . . . . . . . . . . . . . . . . . . . .  37
-     13.7.  Size Limits  . . . . . . . . . . . . . . . . . . . . . .  37
+     13.7.  Size Limits  . . . . . . . . . . . . . . . . . . . . . .  38
      13.8.  Web Browser Runtime Considerations . . . . . . . . . . .  38
    14. Privacy Considerations  . . . . . . . . . . . . . . . . . . .  39
-   15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  39
-     15.1.  Media Type Registration  . . . . . . . . . . . . . . . .  39
-     15.2.  JWT Claims Registration  . . . . . . . . . . . . . . . .  39
+   15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  40
+     15.1.  Media Type Registration  . . . . . . . . . . . . . . . .  40
+     15.2.  JWT Claims Registration  . . . . . . . . . . . . . . . .  40
      15.3.  OAuth Token Type URN . . . . . . . . . . . . . . . . . .  40
      15.4.  OAuth Authorization Server Metadata  . . . . . . . . . .  40
-   16. Compatibility with the Varwof Unified JWT Profile . . . . . .  40
-   17. Intellectual Property . . . . . . . . . . . . . . . . . . . .  43
-   18. Implementation Status . . . . . . . . . . . . . . . . . . . .  43
-   19. Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .  44
-   20. Change Log  . . . . . . . . . . . . . . . . . . . . . . . . .  44
-   21. References  . . . . . . . . . . . . . . . . . . . . . . . . .  46
-     21.1.  Normative References . . . . . . . . . . . . . . . . . .  46
-     21.2.  Informative References . . . . . . . . . . . . . . . . .  47
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  48
+   16. Compatibility with the Varwof Unified JWT Profile . . . . . .  41
+   17. Intellectual Property . . . . . . . . . . . . . . . . . . . .  44
+   18. Implementation Status . . . . . . . . . . . . . . . . . . . .  44
+   19. Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .  45
+   20. Change Log  . . . . . . . . . . . . . . . . . . . . . . . . .  45
+   21. References  . . . . . . . . . . . . . . . . . . . . . . . . .  47
+     21.1.  Normative References . . . . . . . . . . . . . . . . . .  47
+     21.2.  Informative References . . . . . . . . . . . . . . . . .  49
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  50
 
 1.  Introduction
 
@@ -860,7 +860,9 @@ Internet-Draft                   AIC-JWT                    October 2026
       issued- token model: when a DA JWT is present, jti MUST equal the
       DA nonce (carried in the DA as jti), the nonce is consumed at
       first issuance, and it MUST NOT be reused for a second outer
-      token.
+      token.  Re-issuance or renewal MUST be backed by a new principal-
+      signed DA JWT carrying a fresh nonce: an issuer MUST NOT renew or
+      re-issue a token by reusing a prior DA JWT or its nonce.
 
    *  cnf (REQUIRED): a confirmation claim per [RFC7800] binding the
       token to the Agent's proof-of-possession key.  The jkt member
@@ -886,9 +888,7 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  status (OPTIONAL): a Token Status List reference per [TSL], with
       idx and uri members.
 
-   *  authorization_details (OPTIONAL): a Rich Authorization Requests
-      [RFC9396] projection of aic.capabilities, for consumption by
-      standard OAuth resource servers.
+
 
 
 
@@ -897,6 +897,10 @@ Wei                       Expires 5 April 2027                 [Page 16]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   *  authorization_details (OPTIONAL): a Rich Authorization Requests
+      [RFC9396] projection of aic.capabilities, for consumption by
+      standard OAuth resource servers.
 
 5.1.2.  The aic Claim
 
@@ -943,16 +947,16 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  chain_depth (OPTIONAL, 0 to 255): current delegation depth,
       default 0.
 
-   *  max_depth (OPTIONAL, 0 to 255): maximum delegation depth; MUST NOT
-      exceed 1 as a best practice; chain_depth MUST NOT exceed
-      max_depth.
-
 
 
 Wei                       Expires 5 April 2027                 [Page 17]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   *  max_depth (OPTIONAL, 0 to 255): maximum delegation depth; MUST NOT
+      exceed 1 as a best practice; chain_depth MUST NOT exceed
+      max_depth.
 
    *  extensions (OPTIONAL, 0 to 32 entries): an object keyed by OID
       strings; each value is { "critical": boolean, "value": <JSON> }.
@@ -999,16 +1003,15 @@ Internet-Draft                   AIC-JWT                    October 2026
       profile version).  The cross-carrier mapping is: X.509 AIC DA v1
       [AIC] = da.ver=2; X.509 AIC DA v2 [AIC] = da.ver=3.
 
-   *  agent_key_binding (REQUIRED when ver=3; MUST be absent when
-      ver=2): an object binding the DA to the Agent's public key:
-
-
 
 
 Wei                       Expires 5 April 2027                 [Page 18]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   *  agent_key_binding (REQUIRED when ver=3; MUST be absent when
+      ver=2): an object binding the DA to the Agent's public key:
 
       -  hash_alg (REQUIRED): the hash algorithm name (e.g., sha-256,
          sha-384, sha-512, sha3-256, sm3) or its ASN.1 OID string.
@@ -1054,10 +1057,7 @@ Internet-Draft                   AIC-JWT                    October 2026
 
    *  capabilities (REQUIRED): MUST equal the outer aic.capabilities.
 
-   *  delegation_mode (REQUIRED): MUST equal the outer
-      aic.delegation_mode.
 
-   *  constraints (OPTIONAL): MUST equal the outer aic.constraints.
 
 
 
@@ -1065,6 +1065,11 @@ Wei                       Expires 5 April 2027                 [Page 19]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   *  delegation_mode (REQUIRED): MUST equal the outer
+      aic.delegation_mode.
+
+   *  constraints (OPTIONAL): MUST equal the outer aic.constraints.
 
    *  requested_lifetime (REQUIRED): 1 to 86400 seconds; SHOULD be 3600
       to 86400.
@@ -1108,11 +1113,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  constraints (OPTIONAL): principal-level authorization boundary
       constraints, evaluated independently from aic.constraints.
 
-   *  delegation_policy (OPTIONAL): max_agents (default 1), allowed_mode
-      (authorized_only default or representative_allowed), and optional
-      max_session_hours.
-
-   *  extensions (OPTIONAL): same structure as aic.extensions.
 
 
 
@@ -1121,6 +1121,12 @@ Wei                       Expires 5 April 2027                 [Page 20]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   *  delegation_policy (OPTIONAL): max_agents (default 1), allowed_mode
+      (authorized_only default or representative_allowed), and optional
+      max_session_hours.
+
+   *  extensions (OPTIONAL): same structure as aic.extensions.
 
    Alternatively, in PKI mode, the principal's X.509 certificate
    carrying the PrincipalAuthorization extension MAY be presented in the
@@ -1164,12 +1170,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    +---------------------------------+--------------------------------+
    | DelegationAuthTBS               | DA JWT payload                 |
    +---------------------------------+--------------------------------+
-   | PrincipalAuthorization          | PA JWT or principal x5c        |
-   +---------------------------------+--------------------------------+
-   | notBefore / notAfter            | nbf / exp                      |
-   +---------------------------------+--------------------------------+
-   | serialNumber / nonce            | jti / DA nonce                 |
-   +---------------------------------+--------------------------------+
 
 
 
@@ -1178,6 +1178,12 @@ Wei                       Expires 5 April 2027                 [Page 21]
 Internet-Draft                   AIC-JWT                    October 2026
 
 
+   | PrincipalAuthorization          | PA JWT or principal x5c        |
+   +---------------------------------+--------------------------------+
+   | notBefore / notAfter            | nbf / exp                      |
+   +---------------------------------+--------------------------------+
+   | serialNumber / nonce            | jti / DA nonce                 |
+   +---------------------------------+--------------------------------+
    | -- (no ASN.1 counterpart)       | DA iss, sub, aud, exp, iat,    |
    |                                 | jti (RFC 7523 claims)          |
    +---------------------------------+--------------------------------+
@@ -1216,6 +1222,18 @@ Internet-Draft                   AIC-JWT                    October 2026
       boolean) whose semantics are defined by the scheme.  When
       serialized, params MUST NOT exceed 512 bytes.
 
+
+
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 22]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    The Capability object is the unified container reused in three
    contexts: aic.capabilities, aic.constraints, and PA grants.  Although
    the container is the same, the authorization role of each context is
@@ -1226,13 +1244,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    effective AIC authorization input; they are not the final execution
    decision of a resource server or gateway.  Deployment-local execution
    policy is outside the AIC-JWT credential.
-
-
-
-Wei                       Expires 5 April 2027                 [Page 22]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 6.2.  Identifier Matching
 
@@ -1271,17 +1282,6 @@ Internet-Draft                   AIC-JWT                    October 2026
 
                                  Table 5
 
-   A scheme-level wildcard (scheme:*) MUST NOT be used; scheme is always
-   exact.  A bare * without a scheme prefix MUST NOT be interpreted as a
-   cross-scheme capability.
-
-
-
-
-
-
-
-
 
 
 
@@ -1289,6 +1289,10 @@ Wei                       Expires 5 April 2027                 [Page 23]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   A scheme-level wildcard (scheme:*) MUST NOT be used; scheme is always
+   exact.  A bare * without a scheme prefix MUST NOT be interpreted as a
+   cross-scheme capability.
 
    The full identifier is matched as a two-level token stream: the
    pattern and target are first split on : into the scheme and id
@@ -1334,10 +1338,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    If C_agent.params is not a valid subset of P_grants.params under the
    scheme-defined relation, the credential MUST be rejected; a verifier
    MUST NOT silently filter or rewrite the signed agent capability.
-   Where the subset relation holds, the effective parameter value is the
-   agent value (which is at least as restrictive as the grant),
-   evaluated according to scheme semantics.
-
 
 
 
@@ -1345,6 +1345,10 @@ Wei                       Expires 5 April 2027                 [Page 24]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   Where the subset relation holds, the effective parameter value is the
+   agent value (which is at least as restrictive as the grant),
+   evaluated according to scheme semantics.
 
    This specification does not define a universal ordering or
    intersection operation over arbitrary JSON values; scheme-specific
@@ -1385,13 +1389,9 @@ Internet-Draft                   AIC-JWT                    October 2026
 
                                  Table 6
 
-   Constraints are evaluated with logical AND: all constraints MUST be
-   satisfied.  The constraint count MUST NOT exceed 32.  Unknown
-   constraint types MUST be rejected: a verifier that cannot interpret a
-   constraint cannot establish that the constraint is satisfied.
-   Forward-compatible extension is achieved through explicit scheme
-   versioning and type registration, not by ignoring unknown security
-   constraints.
+
+
+
 
 
 
@@ -1401,6 +1401,14 @@ Wei                       Expires 5 April 2027                 [Page 25]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   Constraints are evaluated with logical AND: all constraints MUST be
+   satisfied.  The constraint count MUST NOT exceed 32.  Unknown
+   constraint types MUST be rejected: a verifier that cannot interpret a
+   constraint cannot establish that the constraint is satisfied.
+   Forward-compatible extension is achieved through explicit scheme
+   versioning and type registration, not by ignoring unknown security
+   constraints.
 
    Constraint semantics that depend on evaluation scope or time MUST be
    unambiguous.  For max-concurrent, the default scope is the number of
@@ -1442,14 +1450,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    operation.  Narrow scope x longer lifetime (up to 24 hours with
    renewed DA on renewal).
 
-   *representative*: the Agent acts in the principal's name.  The audit
-   log records aic.principal.id as the actor and act.sub (the agentId)
-   as the executor.  The bundle MUST contain the principal's PA
-   material.  At issuance and at runtime, C_agent MUST be a subset of
-   the principal's current grants P_grants(t).  Wide scope x short
-   lifetime, with runtime P_grants(t) intersection at each operation.
-
-
 
 
 
@@ -1457,6 +1457,13 @@ Wei                       Expires 5 April 2027                 [Page 26]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+   *representative*: the Agent acts in the principal's name.  The audit
+   log records aic.principal.id as the actor and act.sub (the agentId)
+   as the executor.  The bundle MUST contain the principal's PA
+   material.  At issuance and at runtime, C_agent MUST be a subset of
+   the principal's current grants P_grants(t).  Wide scope x short
+   lifetime, with runtime P_grants(t) intersection at each operation.
 
 8.2.  Permission Intersection
 
@@ -1499,13 +1506,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    principal remains the root authorizing party and MUST be identified
    separately from the hop signer (delegator vs. delegate vs. root
    principal).  The delegator's own DA MUST record the delegation right
-   and the current chain_depth; capabilities are recursively narrowed
-   along the chain.  Per-hop narrowing is a containment relation; the
-   Capability Language Core [CLC] defines that relation, while AIC-JWT
-   validates the hop authority and depth.  Verification of a hop MUST
-   establish all of the following: the hop signer holds an explicit
-   delegation authority; the delegated capabilities are a subset of the
-   delegator's effective capabilities; chain_depth increases by exactly
 
 
 
@@ -1514,6 +1514,13 @@ Wei                       Expires 5 April 2027                 [Page 27]
 Internet-Draft                   AIC-JWT                    October 2026
 
 
+   and the current chain_depth; capabilities are recursively narrowed
+   along the chain.  Per-hop narrowing is a containment relation; the
+   Capability Language Core [CLC] defines that relation, while AIC-JWT
+   validates the hop authority and depth.  Verification of a hop MUST
+   establish all of the following: the hop signer holds an explicit
+   delegation authority; the delegated capabilities are a subset of the
+   delegator's effective capabilities; chain_depth increases by exactly
    one per hop; and chain_depth does not exceed max_depth.  Cycles are
    prevented by strictly monotonic chain_depth.  Deployments SHOULD use
    max_depth = 1; larger values MAY be supported only with equivalent
@@ -1521,6 +1528,22 @@ Internet-Draft                   AIC-JWT                    October 2026
    at the configured max_depth MUST NOT delegate further.  Credential
    bomb attacks are limited by a gateway-configured maximum bundle size
    (default 8 certificates or equivalent tokens).
+
+   Chains deeper than 1 are not prohibited by this specification, but
+   they are not recommended and this revision does not define their
+   semantics: conformance is limited to the chain_depth = 0 default and
+   the depth-1 option.  Any future revision that defines them is bound
+   by the same guardrails as the X.509 profile ([AIC] Section 2.3.1):
+   independently signed authorization per hop, monotonic intersection,
+   bounded depth and loop prevention, attribution to the root principal,
+   and a stated legal basis at each hop.  A deployment that uses deeper
+   chains inherits one specific consequence: *responsibility boundaries
+   blur as the chain grows*, because each intermediate agent acts under
+   authority it received and then passes it on, so the legal status of
+   the intermediate agents and the audit actor semantics become
+   ambiguous.  The accountability model of this specification is
+   anchored to the natural person at the top of the chain and is best
+   preserved by a shallow chain.
 
 9.  Credential Bundle (Optional)
 
@@ -1537,6 +1560,15 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  the AIC-JWT (outer token);
 
    *  the principal key material:
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 28]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
 
       -  in PKI mode: the principal's X.509 certificate chain (x5c),
          from which the verifier extracts the SPKI and computes
@@ -1562,14 +1594,6 @@ Internet-Draft                   AIC-JWT                    October 2026
       DER-encoded SPKI; additional hash algorithms MAY be specified by
       the AIC registry.
 
-
-
-
-Wei                       Expires 5 April 2027                 [Page 28]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
-
    *  JWK thumbprint: key_hash = jkt per RFC 7638, hash_alg = "jkt".
       The value jkt denotes the RFC 7638 JWK Thumbprint binding method
       (computed with SHA-256 over the canonical JWK members); it is not
@@ -1594,6 +1618,14 @@ Internet-Draft                   AIC-JWT                    October 2026
    accepted until the next cache refresh; mitigations include short
    lifetime windows (RECOMMENDED <= 1 hour) and locally cached status
    lists.  Deployments that require offline self-contained authorization
+
+
+
+Wei                       Expires 5 April 2027                 [Page 29]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    decisions SHOULD use the X.509 AIC (mTLS) profile instead.
 
 9.4.  Browser Key Material
@@ -1615,16 +1647,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    authorization server: aud (Section 5.2) identifies the configured AIC
    issuance service that is authorized to accept the DA, and the CA
    validates it when configured.
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 29]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
    1.  The Agent generates a key pair and constructs an issuance request
        containing the desired capabilities, delegation mode,
@@ -1650,6 +1672,16 @@ Internet-Draft                   AIC-JWT                    October 2026
    carries no Agent key binding and is accepted only under the legacy
    substitution mitigations (Section 13).
 
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 30]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
 10.2.  OAuth Authorization Server Mode
 
    1.  The principal provides consent through an applicable OAuth
@@ -1674,14 +1706,6 @@ Internet-Draft                   AIC-JWT                    October 2026
        per-mode sub rules of Section 5.2 apply.  It then issues the
        outer AIC-JWT signed with the AS key, with exp bounded per
        Section 5.1.1 and role placement per Section 3.2.  An AS MAY
-
-
-
-Wei                       Expires 5 April 2027                 [Page 30]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
-
        require the DA sub to equal the subject identifier it registers
        for the resource owner, verifying the mapping from the principal
        binding before issuance.
@@ -1705,6 +1729,15 @@ Internet-Draft                   AIC-JWT                    October 2026
    outside the grant subject.  This profile records that binding as
    future work and does not conflate the two parties.
 
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 31]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
 10.3.  Lightweight Consumer Profile
 
    For low-risk consumer deployments, the DA JWT MAY be omitted and
@@ -1727,16 +1760,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    follows RFC 8693; AIC claims are carried in the token unchanged.
    This specification does not alter RFC 8693 semantics and does not
    define an RFC 8693 profile for AIC-JWT.
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 31]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 10.5.  Deployment Architectures
 
@@ -1764,6 +1787,13 @@ Internet-Draft                   AIC-JWT                    October 2026
    application-layer representation when an application protocol
    requires it (Section 10.6).
 
+
+
+Wei                       Expires 5 April 2027                 [Page 32]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
 10.6.  X.509 AIC Interoperability
 
    When the same authorization is carried in both profiles, the
@@ -1784,15 +1814,6 @@ Internet-Draft                   AIC-JWT                    October 2026
 
    *  PrincipalAuthorization: the ASN.1 extension and the PA JWT carry
       the same grants, constraints, and delegation policy;
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 32]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
    *  issuance: a server-side helper MAY accept an X.509 AIC credential
       bundle and issue the equivalent AIC-JWT (Mode B), so that the same
@@ -1820,7 +1841,21 @@ Internet-Draft                   AIC-JWT                    October 2026
         certificate chain MUST be validated against the verifier's
         configured trust policy and the resulting public key MUST
         correspond to the expected AIC issuer; a certificate carried in
-        x5c does not by itself establish trust.
+        x5c does not by itself establish trust.  The issuer key that
+
+
+
+Wei                       Expires 5 April 2027                 [Page 33]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
+        signs the outer AIC-JWT and the key material that signs the DA
+        (the principal's key, or the issuer that attests the principal
+        identity in pure-JSON deployments) MUST be anchored in the same
+        configured trust domain; a verifier MUST reject a token whose
+        outer issuer and DA signer resolve to different trust anchors
+        (Fail-Close).
 
    3.   *Time checks*: nbf <= now <= exp (with deployment-configured
         clock skew); exp - iat <= requested_lifetime and
@@ -1842,14 +1877,6 @@ Internet-Draft                   AIC-JWT                    October 2026
         MUST NOT be treated as single-use by the verifier: the same
         access token is legitimately presented multiple times within its
         lifetime.  A verifier MAY keep an optional local replay cache
-
-
-
-Wei                       Expires 5 April 2027                 [Page 33]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
-
         for additional detection, but such a cache MUST NOT reject a
         valid token on legitimate reuse.  Per-request single-use replay
         protection at the verifier is provided by DPoP proof jti
@@ -1867,6 +1894,17 @@ Internet-Draft                   AIC-JWT                    October 2026
         certificate from the bundle; verify allowed_mode permits
         representative delegation; verify C_agent is a subset of
         P_grants (with parameter intersection per Section 6.3).
+
+
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 34]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
 
    7.   *Delegation depth check*: verify chain_depth <= max_depth and,
         for multi-level chains (Section 8.3), that depth increases by
@@ -1893,19 +1931,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    11.  *Decision*: if all steps pass, permit; otherwise deny and log
         sufficient diagnostic information for audit.
 
-
-
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 34]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
-
    Verification MUST NOT expand any authorization property.  In
    particular: effective capabilities are a subset of the principal
    grants (and of each delegator's capabilities in a chain); effective
@@ -1929,6 +1954,14 @@ Internet-Draft                   AIC-JWT                    October 2026
    "jti": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA", "cnf": { "jkt":
    "0ZcOCORZNYy-DWpqq30jZyHnXgk7dNsQo0c1V3iR4vY" }, "aic": { "ver": 1,
    "principal": { "realm": "corp.com", "id": "zhangsan", "key_hash":
+
+
+
+Wei                       Expires 5 April 2027                 [Page 35]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "hash_alg": "sha-256" }, "delegation_mode": "representative",
    "capabilities": [ { "scheme": "database", "id": "query:SELECT",
@@ -1954,14 +1987,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    "principal": { "realm": "corp.com", "id": "zhangsan", "key_hash":
    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "hash_alg": "sha-256" }, "reason": { "code": "DATA_ANALYSIS", "desc":
-
-
-
-Wei                       Expires 5 April 2027                 [Page 35]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
-
    "Scheduled production data analysis window" }, "capabilities": [ {
    "scheme": "database", "id": "query:SELECT", "params": { "max_rows":
    100 } } ], "delegation_mode": "representative", "constraints": [ {
@@ -1985,6 +2010,14 @@ Internet-Draft                   AIC-JWT                    October 2026
    MUST use TLS.  The token MUST carry cnf binding it to the Agent key,
    and deployments SHOULD additionally use DPoP [RFC9449] (or an
    equivalent proof-of-possession mechanism) to prevent token theft and
+
+
+
+Wei                       Expires 5 April 2027                 [Page 36]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    replay.  Where higher assurance is required, the AS MAY challenge the
    principal with step-up authentication [RFC9470] before issuing or
    refreshing tokens.  Where mTLS is deployed, the verifier MAY cross-
@@ -2007,16 +2040,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    JWT MUST NOT be accepted as a DA JWT.  Verification of the inner
    token MUST use the principal key identified by the DA's principal,
    never the issuer key.
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 36]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 13.5.  Principal Key Binding
 
@@ -2041,6 +2064,16 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  compromised Principal (key leak): mitigated by SPKI-hash binding
       -- key rotation invalidates all existing delegations;
 
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 37]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    *  compromised CA/AS: mitigated by the two-layer signature -- the
       attacker still cannot forge a principal-signed DA JWT.  A
       compromised issuer could otherwise re-issue an outer token with a
@@ -2064,15 +2097,6 @@ Internet-Draft                   AIC-JWT                    October 2026
       Unlike the X.509 profile, no TLS handshake limit applies at the
       application layer, but excessive sizes MUST be rejected to prevent
       denial of service.
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 37]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 13.8.  Web Browser Runtime Considerations
 
@@ -2099,6 +2123,13 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  RSA-PSS signing and verification require an RSA-PSS key; a key
       generated for RSASSA-PKCS1-v1_5 MUST NOT be used for PS256.
 
+
+
+Wei                       Expires 5 April 2027                 [Page 38]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    *  Ed25519 WebCrypto support varies by runtime and browser version;
       implementations MUST feature-detect Ed25519 before using EdDSA.
 
@@ -2120,15 +2151,6 @@ Internet-Draft                   AIC-JWT                    October 2026
    *  Long-running background agents are constrained by page and service
       worker lifecycles; browser-hosted agents SHOULD be session-scoped,
       with long-running execution delegated to a backend.
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 38]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 14.  Privacy Considerations
 
@@ -2155,6 +2177,15 @@ Internet-Draft                   AIC-JWT                    October 2026
        the pseudonym mapping table does not invalidate the DA JWT
        signature.
 
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 39]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    6.  Sensitive data MUST NOT be placed in any claim; all AIC-JWT data
        is visible to any party that receives the token.
 
@@ -2169,22 +2200,6 @@ Internet-Draft                   AIC-JWT                    October 2026
 
    Register the following JWT claims in the IANA JSON Web Token Claims
    registry:
-
-
-
-
-
-
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 39]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
      +================+==============================================+
      | Claim          | Description                                  |
@@ -2216,6 +2231,17 @@ Internet-Draft                   AIC-JWT                    October 2026
    This document does not request any OAuth Authorization Server
    Metadata entries.
 
+
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 40]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
 16.  Compatibility with the Varwof Unified JWT Profile
 
    The internal design note "AIC x SPIFFE x OAuth/OIDC Interop" (dev-
@@ -2237,7 +2263,37 @@ Internet-Draft                   AIC-JWT                    October 2026
 
 
 
-Wei                       Expires 5 April 2027                 [Page 40]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 41]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
@@ -2286,17 +2342,23 @@ Internet-Draft                   AIC-JWT                    October 2026
 
    Projection rules for interoperable deployments:
 
-   *  in SPIFFE mode (is_spiffe=true), the AIC certificate's agentId is
-      itself the SPIFFE ID (spiffe://<td>/agent/<agentId>) and is dual-
-      written to the certificate SAN URI; the AIC-JWT sub inherits that
-      SPIFFE ID directly and no conversion is required;
+   *  in SPIFFE mode (is_spiffe=true), agentId is the agent name - the
+      final path segment of the SPIFFE ID - and the full spiffe:// URI
+      is carried in the certificate SAN URI, as specified for the X.509
+      profile ([AIC]): new issuance MUST use the plain-name form, and
 
 
 
-Wei                       Expires 5 April 2027                 [Page 41]
+Wei                       Expires 5 April 2027                 [Page 42]
 
 Internet-Draft                   AIC-JWT                    October 2026
 
+
+      values issued by earlier revisions that stored the full URI in
+      agentId MAY be accepted for backward compatibility.  A relying
+      party MUST NOT treat the SAN URI and agentId as independent
+      identities.  For the projection the AIC-JWT sub is the full SPIFFE
+      ID, spiffe://<td>/agent/<agentId>;
 
    *  SPIFFE JWT-SVID projection is defined for authorized mode only: a
       representative-mode token carries the resource owner in sub and
@@ -2335,24 +2397,25 @@ Internet-Draft                   AIC-JWT                    October 2026
       validators SHOULD issue a projected token with typ JWT and a
       single-value aud.
 
+
+
+
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 43]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    The SPIFFE JWT-SVID projection in this section is not a WIT and does
    not take the place of a WPT.  A deployment that uses the WIMSE WIT
    [WIT] and WPT [WPT] artifacts follows those specifications for the
    workload identity and proof layers; AIC-JWT remains the authorization
    carrier and, where it gates WIT-SVID issuance, is evaluated before
    issuance.
-
-
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 42]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 17.  Intellectual Property
 
@@ -2395,20 +2458,20 @@ Internet-Draft                   AIC-JWT                    October 2026
    Release state (2026-10-02): types v0.7.0 provides the X.509 DA v2
    AgentKeyBinding types and the da.ver=3 JWT claim set with its
    agent_key_binding verification; aic-jwt v0.3.0 provides the Go and
+
+
+
+Wei                       Expires 5 April 2027                 [Page 44]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    TypeScript interop harness, the browser demo, and the X.509-to-JWT
    bridge that maps X.509 DA v1 to da.ver=2 and X.509 DA v2 to da.ver=3.
    Both releases are exercised by regression tests covering the version
    matrix, the binding format and length checks, and the cnf-to-binding
    cross-check.  Earlier revisions of this draft pinned the types v0.3.1
    release.
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 43]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 19.  Acknowledgements
 
@@ -2429,6 +2492,14 @@ Internet-Draft                   AIC-JWT                    October 2026
       and identified it as one external authorization language for
       capability entailment, intersection, and delegation containment.
 
+   *  Aligned the profile with the X.509 -02 changes: a renewal and re-
+      issuance rule (a new principal-signed DA carrying a fresh nonce),
+      a same-trust-anchor requirement for the outer issuer and the DA
+      signer, the delegation-depth posture (single hop recommended; this
+      revision defines semantics for chain_depth 0 and 1 only, deeper
+      chains bound by the [AIC] guardrails), and the SPIFFE ID mapping
+      (plain-name agentId).
+
    *  Added the WIT/WPT boundary (Sections 1.6 and 18): AIC-JWT is not a
       WIT or WPT; where AIC DA/PA validation gates WIT-SVID issuance,
       the authorization is evaluated before issuance and does not enter
@@ -2441,6 +2512,15 @@ Internet-Draft                   AIC-JWT                    October 2026
       (jti = nonce; exp = ts + requested_lifetime), making the
       Section 10.2 jwt-bearer presentation interoperable (resolves
       review by I.  Schrock, OAuth WG, 2026-09-04).
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 45]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
 
    *  Role placement is mode-dependent: representative mode places the
       resource owner / principal in sub and the agent in act (RFC 8693
@@ -2456,15 +2536,6 @@ Internet-Draft                   AIC-JWT                    October 2026
 
    *  DA ver bumped to 2 for the -01 claim set; ver=1 is the -00 shape
       and is rejected, making the schema break explicit.
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 44]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
    *  Positioning tightened (2026-09-08): AIC-JWT is the JWT carrier of
       the AIC semantic model; the document does not define an RFC 9068
@@ -2493,6 +2564,20 @@ Internet-Draft                   AIC-JWT                    October 2026
       nonce is the unpadded base64url encoding of exactly 32 octets;
       examples corrected accordingly.
 
+
+
+
+
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 46]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    *  Wording alignment (2026-09-08): clarified that AIC-JWT is not
       inherently sender-constrained and requires an enforced proof-of-
       possession mechanism for sender binding (Section 13.2); constraint
@@ -2513,14 +2598,6 @@ Internet-Draft                   AIC-JWT                    October 2026
       presentation, DA nonce replay controls, deployment architectures,
       and projections to SPIFFE JWT-SVID and RFC 9068 views (including
       the SPIFFE-aligned algorithm allowlist and typ projection rules).
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 45]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
 21.  References
 
@@ -2547,6 +2624,16 @@ Internet-Draft                   AIC-JWT                    October 2026
               (JWT)", RFC 7519, DOI 10.17487/RFC7519, May 2015,
               <https://www.rfc-editor.org/rfc/rfc7519>.
 
+
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 47]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    [RFC7523]  Jones, M., Campbell, B., and C. Mortimore, "JSON Web Token
               (JWT) Profile for OAuth 2.0 Client Authentication and
               Authorization Grants", RFC 7523, DOI 10.17487/RFC7523, May
@@ -2569,14 +2656,6 @@ Internet-Draft                   AIC-JWT                    October 2026
               and C. Mortimore, "OAuth 2.0 Token Exchange", RFC 8693,
               DOI 10.17487/RFC8693, January 2020,
               <https://www.rfc-editor.org/rfc/rfc8693>.
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 46]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
    [RFC8725]  Sheffer, Y., Hardt, D., and M. Jones, "JSON Web Token Best
               Current Practices", BCP 225, RFC 8725,
@@ -2602,6 +2681,15 @@ Internet-Draft                   AIC-JWT                    October 2026
               Possession (DPoP)", RFC 9449, DOI 10.17487/RFC9449,
               September 2023, <https://www.rfc-editor.org/rfc/rfc9449>.
 
+
+
+
+
+Wei                       Expires 5 April 2027                 [Page 48]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    [RFC9470]  Bertocci, V. and B. Campbell, "OAuth 2.0 Step Up
               Authentication Challenge Protocol", RFC 9470,
               DOI 10.17487/RFC9470, September 2023,
@@ -2621,18 +2709,6 @@ Internet-Draft                   AIC-JWT                    October 2026
               cert/>.
 
 21.2.  Informative References
-
-
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 47]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
 
    [RFC5280]  Cooper, D., Santesson, S., Farrell, S., Boeyen, S.,
               Housley, R., and W. Polk, "Internet X.509 Public Key
@@ -2662,6 +2738,14 @@ Internet-Draft                   AIC-JWT                    October 2026
               2026, <https://datatracker.ietf.org/doc/draft-rampalli-
               pedigree/>.
 
+
+
+
+Wei                       Expires 5 April 2027                 [Page 49]
+
+Internet-Draft                   AIC-JWT                    October 2026
+
+
    [HDP]      "Human Delegation Provenance Protocol", 2026,
               <https://datatracker.ietf.org/doc/draft-helixar-hdp-
               agentic-delegation/>.
@@ -2682,14 +2766,6 @@ Author's Address
    Jijie Wei
    Individual
    Email: pki@varwof.com
-
-
-
-Wei                       Expires 5 April 2027                 [Page 48]
-
-Internet-Draft                   AIC-JWT                    October 2026
-
-
    URI:   https://varwof.com
 
 
@@ -2721,24 +2797,4 @@ Internet-Draft                   AIC-JWT                    October 2026
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Wei                       Expires 5 April 2027                 [Page 49]
+Wei                       Expires 5 April 2027                 [Page 50]

@@ -565,6 +565,9 @@ JWT and OAuth claims.
   token model: when a DA JWT is present, `jti` MUST equal the DA
   `nonce` (carried in the DA as `jti`), the nonce is consumed at first
   issuance, and it MUST NOT be reused for a second outer token.
+  Re-issuance or renewal MUST be backed by a new principal-signed DA JWT
+  carrying a fresh nonce: an issuer MUST NOT renew or re-issue a token by
+  reusing a prior DA JWT or its nonce.
 * `cnf` (REQUIRED): a confirmation claim per [RFC7800] binding the
   token to the Agent's proof-of-possession key.  The `jkt` member
   ([RFC7638] thumbprint) is RECOMMENDED.  When DPoP [RFC9449] is used,
@@ -1085,6 +1088,21 @@ narrowing, and resource limits.  A sub-agent at the configured
 limited by a gateway-configured maximum bundle size (default 8
 certificates or equivalent tokens).
 
+Chains deeper than 1 are not prohibited by this specification, but they
+are not recommended and this revision does not define their semantics:
+conformance is limited to the `chain_depth = 0` default and the depth-1
+option.  Any future revision that defines them is bound by the same
+guardrails as the X.509 profile ([AIC] Section 2.3.1): independently
+signed authorization per hop, monotonic intersection, bounded depth and
+loop prevention, attribution to the root principal, and a stated legal
+basis at each hop.  A deployment that uses deeper chains inherits one
+specific consequence: **responsibility boundaries blur as the chain
+grows**, because each intermediate agent acts under authority it
+received and then passes it on, so the legal status of the intermediate
+agents and the audit actor semantics become ambiguous.  The
+accountability model of this specification is anchored to the natural
+person at the top of the chain and is best preserved by a shallow chain.
+
 ---
 
 # 9. Credential Bundle (Optional)
@@ -1328,7 +1346,12 @@ receiving the AIC-JWT and bundle:
    certificate chain MUST be validated against the verifier's
    configured trust policy and the resulting public key MUST
    correspond to the expected AIC issuer; a certificate carried in
-   `x5c` does not by itself establish trust.
+   `x5c` does not by itself establish trust.  The issuer key that signs
+   the outer AIC-JWT and the key material that signs the DA (the
+   principal's key, or the issuer that attests the principal identity in
+   pure-JSON deployments) MUST be anchored in the same configured trust
+   domain; a verifier MUST reject a token whose outer issuer and DA
+   signer resolve to different trust anchors (Fail-Close).
 3. **Time checks**: `nbf <= now <= exp` (with deployment-configured
    clock skew); `exp - iat <= requested_lifetime` and
    `requested_lifetime <= 86400`.  The outer AIC-JWT MAY have a
@@ -1787,10 +1810,14 @@ different naming; the mapping below keeps them interoperable:
 
 Projection rules for interoperable deployments:
 
-* in SPIFFE mode (`is_spiffe=true`), the AIC certificate's `agentId`
-  is itself the SPIFFE ID (`spiffe://<td>/agent/<agentId>`) and is
-  dual-written to the certificate SAN URI; the AIC-JWT `sub` inherits
-  that SPIFFE ID directly and no conversion is required;
+* in SPIFFE mode (`is_spiffe=true`), `agentId` is the agent name - the
+  final path segment of the SPIFFE ID - and the full `spiffe://` URI is
+  carried in the certificate SAN URI, as specified for the X.509 profile
+  ([AIC]): new issuance MUST use the plain-name form, and values issued by
+  earlier revisions that stored the full URI in `agentId` MAY be accepted
+  for backward compatibility.  A relying party MUST NOT treat the SAN URI
+  and `agentId` as independent identities.  For the projection the
+  AIC-JWT `sub` is the full SPIFFE ID, `spiffe://<td>/agent/<agentId>`;
 * SPIFFE JWT-SVID projection is defined for `authorized` mode only:
   a `representative`-mode token carries the resource owner in `sub`
   and MUST NOT be projected to a JWT-SVID (whose subject is the agent
@@ -1897,6 +1924,12 @@ draft-wei-aic-jwt-02 (2026-10-02):
 * Added informative references to the Capability Language Core
   [CLC] and identified it as one external authorization language for
   capability entailment, intersection, and delegation containment.
+* Aligned the profile with the X.509 -02 changes: a renewal and
+  re-issuance rule (a new principal-signed DA carrying a fresh nonce), a
+  same-trust-anchor requirement for the outer issuer and the DA signer,
+  the delegation-depth posture (single hop recommended; this revision
+  defines semantics for `chain_depth` 0 and 1 only, deeper chains bound by
+  the [AIC] guardrails), and the SPIFFE ID mapping (plain-name `agentId`).
 * Added the WIT/WPT boundary (Sections 1.6 and 18): AIC-JWT is not a
   WIT or WPT; where AIC DA/PA validation gates WIT-SVID issuance, the
   authorization is evaluated before issuance and does not enter the

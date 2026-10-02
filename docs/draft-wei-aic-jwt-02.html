@@ -2425,7 +2425,10 @@ accepted.<a href="#section-5.1.1-1.7.1" class="pilcrow">¶</a></p>
 prevention and status lists.  This profile uses a one-DA-per-issued-
 token model: when a DA JWT is present, <code>jti</code> MUST equal the DA
 <code>nonce</code> (carried in the DA as <code>jti</code>), the nonce is consumed at first
-issuance, and it MUST NOT be reused for a second outer token.<a href="#section-5.1.1-1.8.1" class="pilcrow">¶</a></p>
+issuance, and it MUST NOT be reused for a second outer token.
+Re-issuance or renewal MUST be backed by a new principal-signed DA JWT
+carrying a fresh nonce: an issuer MUST NOT renew or re-issue a token by
+reusing a prior DA JWT or its nonce.<a href="#section-5.1.1-1.8.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.9">
               <p id="section-5.1.1-1.9.1"><code>cnf</code> (REQUIRED): a confirmation claim per <span>[<a href="#RFC7800" class="cite xref">RFC7800</a>]</span> binding the
@@ -3259,6 +3262,20 @@ narrowing, and resource limits.  A sub-agent at the configured
 <code>max_depth</code> MUST NOT delegate further.  Credential bomb attacks are
 limited by a gateway-configured maximum bundle size (default 8
 certificates or equivalent tokens).<a href="#section-8.3-2" class="pilcrow">¶</a></p>
+<p id="section-8.3-3">Chains deeper than 1 are not prohibited by this specification, but they
+are not recommended and this revision does not define their semantics:
+conformance is limited to the <code>chain_depth = 0</code> default and the depth-1
+option.  Any future revision that defines them is bound by the same
+guardrails as the X.509 profile (<span>[<a href="#AIC" class="cite xref">AIC</a>]</span> Section 2.3.1): independently
+signed authorization per hop, monotonic intersection, bounded depth and
+loop prevention, attribution to the root principal, and a stated legal
+basis at each hop.  A deployment that uses deeper chains inherits one
+specific consequence: <strong>responsibility boundaries blur as the chain
+grows</strong>, because each intermediate agent acts under authority it
+received and then passes it on, so the legal status of the intermediate
+agents and the audit actor semantics become ambiguous.  The
+accountability model of this specification is anchored to the natural
+person at the top of the chain and is best preserved by a shallow chain.<a href="#section-8.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3596,7 +3613,12 @@ allowlist.<a href="#section-11-2.1.1" class="pilcrow">¶</a></p>
 certificate chain MUST be validated against the verifier's
 configured trust policy and the resulting public key MUST
 correspond to the expected AIC issuer; a certificate carried in
-<code>x5c</code> does not by itself establish trust.<a href="#section-11-2.2.1" class="pilcrow">¶</a></p>
+<code>x5c</code> does not by itself establish trust.  The issuer key that signs
+the outer AIC-JWT and the key material that signs the DA (the
+principal's key, or the issuer that attests the principal identity in
+pure-JSON deployments) MUST be anchored in the same configured trust
+domain; a verifier MUST reject a token whose outer issuer and DA
+signer resolve to different trust anchors (Fail-Close).<a href="#section-11-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.3">
           <p id="section-11-2.3.1"><strong>Time checks</strong>: <code>nbf &lt;= now &lt;= exp</code> (with deployment-configured
@@ -4203,10 +4225,14 @@ different naming; the mapping below keeps them interoperable:<a href="#section-1
 <p id="section-16-3">Projection rules for interoperable deployments:<a href="#section-16-3" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-16-4.1">
-          <p id="section-16-4.1.1">in SPIFFE mode (<code>is_spiffe=true</code>), the AIC certificate's <code>agentId</code>
-is itself the SPIFFE ID (<code>spiffe://&lt;td&gt;/agent/&lt;agentId&gt;</code>) and is
-dual-written to the certificate SAN URI; the AIC-JWT <code>sub</code> inherits
-that SPIFFE ID directly and no conversion is required;<a href="#section-16-4.1.1" class="pilcrow">¶</a></p>
+          <p id="section-16-4.1.1">in SPIFFE mode (<code>is_spiffe=true</code>), <code>agentId</code> is the agent name - the
+final path segment of the SPIFFE ID - and the full <code>spiffe://</code> URI is
+carried in the certificate SAN URI, as specified for the X.509 profile
+(<span>[<a href="#AIC" class="cite xref">AIC</a>]</span>): new issuance MUST use the plain-name form, and values issued by
+earlier revisions that stored the full URI in <code>agentId</code> MAY be accepted
+for backward compatibility.  A relying party MUST NOT treat the SAN URI
+and <code>agentId</code> as independent identities.  For the projection the
+AIC-JWT <code>sub</code> is the full SPIFFE ID, <code>spiffe://&lt;td&gt;/agent/&lt;agentId&gt;</code>;<a href="#section-16-4.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-16-4.2">
           <p id="section-16-4.2.1">SPIFFE JWT-SVID projection is defined for <code>authorized</code> mode only:
@@ -4348,11 +4374,19 @@ Agent-key binding (Sections 5.2 and 5.4).<a href="#section-20-2.1.1" class="pilc
 capability entailment, intersection, and delegation containment.<a href="#section-20-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.3">
-          <p id="section-20-2.3.1">Added the WIT/WPT boundary (Sections 1.6 and 18): AIC-JWT is not a
+          <p id="section-20-2.3.1">Aligned the profile with the X.509 -02 changes: a renewal and
+re-issuance rule (a new principal-signed DA carrying a fresh nonce), a
+same-trust-anchor requirement for the outer issuer and the DA signer,
+the delegation-depth posture (single hop recommended; this revision
+defines semantics for <code>chain_depth</code> 0 and 1 only, deeper chains bound by
+the <span>[<a href="#AIC" class="cite xref">AIC</a>]</span> guardrails), and the SPIFFE ID mapping (plain-name <code>agentId</code>).<a href="#section-20-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-20-2.4">
+          <p id="section-20-2.4.1">Added the WIT/WPT boundary (Sections 1.6 and 18): AIC-JWT is not a
 WIT or WPT; where AIC DA/PA validation gates WIT-SVID issuance, the
 authorization is evaluated before issuance and does not enter the
 WIT claims; the WIT remains an identity and cnf credential that
-requires a WPT and is not a bearer token.<a href="#section-20-2.3.1" class="pilcrow">¶</a></p>
+requires a WPT and is not a bearer token.<a href="#section-20-2.4.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 <p id="section-20-3">draft-wei-aic-jwt-01 (2026-09-05; revised 2026-09-08):<a href="#section-20-3" class="pilcrow">¶</a></p>

@@ -337,9 +337,48 @@ func checkTime(o *OuterClaims, now time.Time) error {
 	return nil
 }
 
+// checkAgentKeyBinding validates the da.ver=3 agent_key_binding
+// object (draft Section 5.2): hash_alg is REQUIRED and must be a hash
+// function implemented here (no silent fallback), and key_hash must be
+// unpadded base64url whose decoded length equals the algorithm output
+// length.
+func checkAgentKeyBinding(b *AgentKeyBinding) error {
+	if b.HashAlg == "" {
+		return fmt.Errorf("DA agent_key_binding.hash_alg required")
+	}
+	size, ok := SupportedHashAlgs[b.HashAlg]
+	if !ok || b.HashAlg == "jkt" {
+		return fmt.Errorf("DA agent_key_binding.hash_alg %q unsupported", b.HashAlg)
+	}
+	if b.KeyHash == "" {
+		return fmt.Errorf("DA agent_key_binding.key_hash required")
+	}
+	raw, err := b64uDecode(b.KeyHash)
+	if err != nil {
+		return fmt.Errorf("DA agent_key_binding.key_hash: %w", err)
+	}
+	if len(raw) != size {
+		return fmt.Errorf("DA agent_key_binding.key_hash length %d does not match %s output length %d", len(raw), b.HashAlg, size)
+	}
+	return nil
+}
+
 func checkDARequired(d *DAClaims) error {
-	if d.Ver != 2 {
-		return fmt.Errorf("DA ver must be 2")
+	switch d.Ver {
+	case 2:
+		// Legacy claim set: the JWT counterpart of X.509 AIC DA v1.
+		if d.AgentKeyBinding != nil {
+			return fmt.Errorf("DA ver must be 3 to carry agent_key_binding")
+		}
+	case 3:
+		if d.AgentKeyBinding == nil {
+			return fmt.Errorf("DA ver=3 requires agent_key_binding")
+		}
+		if err := checkAgentKeyBinding(d.AgentKeyBinding); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("DA ver must be 3 (current) or 2 (legacy), got %d", d.Ver)
 	}
 	if d.Iss == "" || len(d.Iss) > 256 {
 		return fmt.Errorf("DA iss required, 1..256 chars")
@@ -502,6 +541,18 @@ func validateDA(outer *OuterClaims, opts VerifyOptions) (*DAClaims, error) {
 	}
 	if opts.RequireJtiNonceMatch && outer.Jti != da.Nonce {
 		return nil, fmt.Errorf("outer jti does not match DA nonce")
+	}
+	// da.ver=3: the binding is covered by the principal signature, so
+	// the verifier must require the key identified by cnf to match it.
+	// The cnf/presenter check above anchored cnf to opts.PresenterKey.
+	if da.Ver == 3 && da.AgentKeyBinding != nil && opts.PresenterKey != nil {
+		h, err := KeyHashOf(opts.PresenterKey, da.AgentKeyBinding.HashAlg)
+		if err != nil {
+			return nil, fmt.Errorf("agent_key_binding: %w", err)
+		}
+		if h != da.AgentKeyBinding.KeyHash {
+			return nil, fmt.Errorf("DA agent_key_binding does not match the presenter key")
+		}
 	}
 	if outer.Exp > da.Exp {
 		return nil, fmt.Errorf("outer exp %d exceeds DA exp %d", outer.Exp, da.Exp)

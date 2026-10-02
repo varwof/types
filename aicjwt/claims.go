@@ -123,26 +123,36 @@ type Reason struct {
 	Desc string `json:"desc"`
 }
 
+// AgentKeyBinding is the da.ver=3 binding of the delegation
+// authorization to the Agent's public key (draft Section 5.2):
+// key_hash is the unpadded base64url encoding of hash_alg(SPKI DER).
+type AgentKeyBinding struct {
+	HashAlg string `json:"hash_alg"`
+	KeyHash string `json:"key_hash"`
+}
+
 // DAClaims is the inner DA JWT payload, the JSON equivalent of
-// DelegationAuthTBS (draft Section 5.2). Every member below is
-// required.
+// DelegationAuthTBS (draft Section 5.2). Every member is required
+// except agent_key_binding: it is REQUIRED for ver=3 and MUST be
+// absent for ver=2 (the legacy claim set).
 type DAClaims struct {
-	Ver               int          `json:"ver"`
-	Iss               string       `json:"iss"`           // principal identifier (RFC 7523 issuer)
-	Sub               string       `json:"sub"`           // mode-dependent grant subject (RFC 7523)
-	Aud               Audience     `json:"aud"`           // intended authorization server (RFC 7523)
-	Exp               int64        `json:"exp"`           // ts + requested_lifetime (RFC 7523 expiry)
-	Iat               int64        `json:"iat,omitempty"` // equals ts when present
-	Jti               string       `json:"jti"`           // equals nonce; replay identifier
-	AgentID           string       `json:"agent_id"`
-	Principal         Principal    `json:"principal"`
-	Reason            Reason       `json:"reason"`
-	Capabilities      []Capability `json:"capabilities"`
-	DelegationMode    string       `json:"delegation_mode"`
-	Constraints       []Capability `json:"constraints,omitempty"`
-	RequestedLifetime int          `json:"requested_lifetime"`
-	TS                int64        `json:"ts"`
-	Nonce             string       `json:"nonce"`
+	Ver               int              `json:"ver"`
+	Iss               string           `json:"iss"`           // principal identifier (RFC 7523 issuer)
+	Sub               string           `json:"sub"`           // mode-dependent grant subject (RFC 7523)
+	Aud               Audience         `json:"aud"`           // intended authorization server (RFC 7523)
+	Exp               int64            `json:"exp"`           // ts + requested_lifetime (RFC 7523 expiry)
+	Iat               int64            `json:"iat,omitempty"` // equals ts when present
+	Jti               string           `json:"jti"`           // equals nonce; replay identifier
+	AgentID           string           `json:"agent_id"`
+	Principal         Principal        `json:"principal"`
+	Reason            Reason           `json:"reason"`
+	Capabilities      []Capability     `json:"capabilities"`
+	DelegationMode    string           `json:"delegation_mode"`
+	Constraints       []Capability     `json:"constraints,omitempty"`
+	RequestedLifetime int              `json:"requested_lifetime"`
+	TS                int64            `json:"ts"`
+	Nonce             string           `json:"nonce"`
+	AgentKeyBinding   *AgentKeyBinding `json:"agent_key_binding,omitempty"`
 }
 
 // SubjectID returns the canonical realm-qualified principal identifier

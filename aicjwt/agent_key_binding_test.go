@@ -129,14 +129,19 @@ func TestDAVersion3AgentKeyBinding(t *testing.T) {
 		requireErrContains(t, err, "does not match the presenter key")
 	})
 
-	t.Run("pipeline_without_presenter_key_skips_the_cross_check", func(t *testing.T) {
+	// draft -02 Section 7.2: "The verifier MUST require the key identified
+	// by the outer cnf claim to match this binding before accepting a
+	// ver=3 token."  cnf.jkt is an RFC 7638 thumbprint while
+	// agent_key_binding.key_hash is hash_alg(SPKI DER), so the two cannot
+	// be compared without the public key: a ver=3 DA is refused rather
+	// than accepted unverified when the caller supplies no presenter key.
+	t.Run("pipeline_without_presenter_key_is_rejected", func(t *testing.T) {
 		daTok, da := buildDA(t, env, ModeAuthorized, caps, func(d *DAClaims) {
 			d.Ver = 3
 			d.AgentKeyBinding = bindingOf(t, env.agentKey)
 		})
 		tok, _ := buildOuter(t, env, daTok, da, ModeAuthorized, caps, nil)
-		if _, err := Validate(tok, defaultOpts(env)); err != nil {
-			t.Fatalf("without a presenter key the binding cannot be cross-checked: %v", err)
-		}
+		_, err := Validate(tok, defaultOpts(env))
+		requireErrContains(t, err, "without the presenter key")
 	})
 }

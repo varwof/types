@@ -545,7 +545,18 @@ func validateDA(outer *OuterClaims, opts VerifyOptions) (*DAClaims, error) {
 	// da.ver=3: the binding is covered by the principal signature, so
 	// the verifier must require the key identified by cnf to match it.
 	// The cnf/presenter check above anchored cnf to opts.PresenterKey.
-	if da.Ver == 3 && da.AgentKeyBinding != nil && opts.PresenterKey != nil {
+	// cnf.jkt is an RFC 7638 thumbprint and agent_key_binding.key_hash is
+	// hash_alg(SPKI DER); the two are different values for the same key and
+	// cannot be compared without the public key, so a ver=3 token whose
+	// presenter key the caller did not supply is refused instead of accepted
+	// unverified.
+	if da.Ver == 3 {
+		if opts.PresenterKey == nil {
+			return nil, fmt.Errorf("DA ver=3: agent_key_binding cannot be checked against cnf without the presenter key")
+		}
+		if da.AgentKeyBinding == nil {
+			return nil, fmt.Errorf("DA ver=3: agent_key_binding is required")
+		}
 		h, err := KeyHashOf(opts.PresenterKey, da.AgentKeyBinding.HashAlg)
 		if err != nil {
 			return nil, fmt.Errorf("agent_key_binding: %w", err)
